@@ -1,0 +1,33 @@
+name: Style Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  stylecheck:
+    name: Run Style Checker
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true # Ensure submodules are checked out
+
+      # Install Verible Verilog Linter
+      - name: Install Verible
+        run: |
+          sudo apt update
+          sudo apt install -y wget
+          wget https://github.com/chipsalliance/verible/releases/download/v0.0-3194-gd2d0e8b/verible-v0.0-3194-gd2d0e8b-Ubuntu-22.04.tar.gz
+          tar -xvf verible-v0.0-3194-gd2d0e8b-Ubuntu-22.04.tar.gz
+          sudo mv verible-v0.0-3194-gd2d0e8b-Ubuntu-22.04/bin/* /usr/local/bin/
+
+      # Run the linter on Verilog files
+      - name: Run Verilog Style Checker
+        run: |
+          find ./src -name "*.sv" -o -name "*.v" | xargs -I {} verible-verilog-linter {}
