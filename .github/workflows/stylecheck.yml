@@ -10,6 +10,7 @@ jobs:
   stylecheck:
     name: Run Style Checker
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Beendet den Job nach 15 Minuten, falls er hängt
 
     steps:
       # Checkout the repository
@@ -27,7 +28,14 @@ jobs:
           tar -xvf verible-v0.0-3194-gd2d0e8b-Ubuntu-22.04.tar.gz
           sudo mv verible-v0.0-3194-gd2d0e8b-Ubuntu-22.04/bin/* /usr/local/bin/
 
+      # Debugging Step
+      - name: Debugging Step
+        run: |
+          echo "Listing all Verilog files:"
+          find ./src -name "*.sv" -o -name "*.v"
+
       # Run the linter on Verilog files
       - name: Run Verilog Style Checker
         run: |
-          find ./src -name "*.sv" -o -name "*.v" | xargs -I {} verible-verilog-linter {}
+          set -x
+          find ./src -name "*.sv" -o -name "*.v" | xargs -I {} timeout 300s verible-verilog-linter {}
