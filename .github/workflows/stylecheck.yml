@@ -24,9 +24,9 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y wget
-          wget https://github.com/chipsalliance/verible/releases/download/v0.0-3194-gd2d0e8b/verible-v0.0-3194-gd2d0e8b-Ubuntu-22.04.tar.gz
-          tar -xvf verible-v0.0-3194-gd2d0e8b-Ubuntu-22.04.tar.gz
-          sudo mv verible-v0.0-3194-gd2d0e8b-Ubuntu-22.04/bin/* /usr/local/bin/
+          wget https://github.com/chipsalliance/verible/releases/download/v0.0-3195/verible-v0.0-3195-Ubuntu-22.04.tar.gz
+          tar -xvf verible-v0.0-3195-Ubuntu-22.04.tar.gz
+          sudo mv verible-v0.0-3195-Ubuntu-22.04/bin/* /usr/local/bin/
 
       # Debugging Step
       - name: Debugging Step
