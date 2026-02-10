@@ -1,0 +1,7 @@
+# Pin Constraints File (PCF)
+# Adjust pin locations based on final IO layout
+
+# Example:
+# set_io clk_PAD  io_pin[0]
+# set_io rst_n_PAD io_pin[1]
+# ...

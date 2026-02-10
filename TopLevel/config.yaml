@@ -1,0 +1,29 @@
+# Librelane / OpenLane Configuration
+
+DESIGN_NAME: ir_decoder_top
+
+VERILOG_FILES:
+  - src/ir_decoder_top.sv
+  - ../EdgeDetector/src/edge_detector.sv
+  - ../PulseTimer/src/pulse_timer.sv
+  - ../NECDecoder/src/nec_decoder.sv
+  - ../NECDecoder/src/bit_decoder.sv
+  - ../UART_TX/src/uart_tx.sv
+  - ../OutputFormatter/src/output_formatter.sv
+
+CLOCK_PORT: clk_PAD
+CLOCK_PERIOD: 100
+
+# Constraints
+SDC_FILE: constraints/timing.sdc
+# PIN_CONFIG_FILE: constraints/pins.pcf
+
+# Technology
+# PDK: sg13g2
+
+# Optimization
+FP_CORE_UTIL: 40
+PL_TARGET_DENSITY: 0.55
+
+# Optional: Use Slang for better SystemVerilog support
+# USE_SLANG: true
