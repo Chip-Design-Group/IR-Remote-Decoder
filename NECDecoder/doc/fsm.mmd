@@ -1,0 +1,39 @@
+graph TD
+    %% States
+    START(( )) --> IDLE
+    IDLE[IDLE]
+    LEADER[LEADER]
+    SPACE[SPACE]
+    REPEAT[REPEAT]
+    DATA[DATA]
+    VALIDATE[VALIDATE]
+
+    %% Transitions
+    IDLE -- "9ms LOW<br/>(AGC Burst)" --> LEADER
+    
+    LEADER -- "4.5ms HIGH" --> SPACE
+    LEADER -- "2.25ms HIGH" --> REPEAT
+    
+    SPACE -- "560µs LOW" --> DATA
+    
+    DATA -- "Bit empfangen<br/>(LSB first)" --> DATA
+    DATA -- "32 Bits komplett" --> VALIDATE
+    
+    VALIDATE -- "Valid / Error" --> IDLE
+    REPEAT -- "Repeat? -> Re-send valid" --> IDLE
+
+    %% Error/Timeout Transitions (Simplified)
+    LEADER -.->|Error/Timeout| IDLE
+    SPACE  -.->|Error/Timeout| IDLE
+    DATA   -.->|Error/Timeout| IDLE
+
+    %% Styling
+    style START fill:#000
+    style IDLE fill:#fff,stroke:#333,stroke-width:2px
+    style LEADER fill:#f3e5f5,stroke:#7b1fa2
+    style SPACE fill:#f3e5f5,stroke:#7b1fa2
+    style DATA fill:#f3e5f5,stroke:#7b1fa2
+    style VALIDATE fill:#e1f5fe,stroke:#01579b
+    style REPEAT fill:#fff3e0,stroke:#e65100
+    
+    classDef default font-family:sans-serif,font-size:12px;

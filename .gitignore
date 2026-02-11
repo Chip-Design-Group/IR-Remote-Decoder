@@ -1,2 +1,9 @@
 librelane/
 pdk/
+
+# Python
+__pycache__/
+*.pyc
+
+# CocoTB simulation
+sim_build/
