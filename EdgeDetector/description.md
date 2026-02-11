@@ -1,0 +1,1 @@
+The edge detector takes the signal and puts it through two flip flops so the signal synchronizes with the clock and after that it remembers what the last clock signal was (0 or 1) and with the new signal it now knows if the signal was an edge rise or edge fall.
