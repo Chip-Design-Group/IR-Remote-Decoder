@@ -4,9 +4,8 @@ PDK = ihp-sg13g2
 
 .PHONY: test
 test:
-	pytest test/
+	SIM=icarus python test/test_uart_tx.py
 
 .PHONY: clean
 clean:
-	rm -rf sim_build
-	rm -rf __pycache__
+	rm -rf sim_build __pycache__ *.vcd
