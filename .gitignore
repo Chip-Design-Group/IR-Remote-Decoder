@@ -1,5 +1,7 @@
 librelane/
 pdk/
+.venv/
+UART_TX/sim_build
 
 # Python
 __pycache__/
