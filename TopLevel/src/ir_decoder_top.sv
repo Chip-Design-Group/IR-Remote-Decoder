@@ -14,7 +14,9 @@
 //   led_active = receiving signal (high during decoding)
 // ============================================================
 
-module ir_decoder_top (
+    // parameter int SYSTEM_CLOCK_HZ = 100_000_000, 
+    // parameter int BAUD_RATE       = 9600
+) (
     input  logic clk_PAD,
     input  logic rst_n_PAD,
     input  logic ir_in_PAD,
@@ -26,14 +28,35 @@ module ir_decoder_top (
 );
 
     // ========================================================
-    // Internal Signals (directly assigned for simulation;
-    // ASIC IO pads would be instantiated here for tapeout)
+    // Clock Divider: 100 MHz -> 10 MHz
     // ========================================================
+    logic clk_10mhz;
+    logic [3:0] clk_div_cnt;
+
+    // Divide by 10: Toggle every 5 cycles
+    always_ff @(posedge clk_PAD) begin
+        if (!rst_n_PAD) begin
+            clk_div_cnt <= 0;
+            clk_10mhz   <= 0;
+        end else begin
+            if (clk_div_cnt == 4) begin
+                clk_div_cnt <= 0;
+                clk_10mhz   <= ~clk_10mhz;
+            end else begin
+                clk_div_cnt <= clk_div_cnt + 1;
+            end
+        end
+    end
+
+    // Use the divided clock for the core logic
     logic clk, rst_n, ir_in;
     logic uart_tx_out;
     logic led_valid, led_error, led_active;
 
-    assign clk   = clk_PAD;
+    // Use global buffer for the derived clock to improve timing routing
+    // (Vivado will infer a BUFG automatically for high-fanout clocks mostly, 
+    // but assignment is direct here)
+    assign clk   = clk_10mhz; 
     assign rst_n = rst_n_PAD;
     assign ir_in = ir_in_PAD;
 
@@ -41,6 +64,9 @@ module ir_decoder_top (
     assign led_valid_PAD = led_valid;
     assign led_error_PAD = led_error;
     assign led_active_PAD = led_active;
+
+    // Derived parameter for UART (Standard 10MHz / 9600)
+    localparam int CLOCKS_PER_BIT = 1042;
 
     // ========================================================
     // Edge Detector → Pulse Timer interconnect
@@ -130,7 +156,7 @@ module ir_decoder_top (
 
     // --- UART Transmitter ---
     uart_tx #(
-        .CLOCKS_PER_BIT(1042)  // 10 MHz / 9600 baud
+        .CLOCKS_PER_BIT(CLOCKS_PER_BIT)
     ) u_uart_tx (
         .clk          (clk),
         .rst_n        (rst_n),
