@@ -1,10 +1,10 @@
 `timescale 1ns/1ps
-"""
-Output Formatter Module which takes decoded NEC address and command,
-formats them into a string, and sends it out via UART. 
-The output format is "A:xx C:yy\n" where xx and yy are the hexadecimal 
-representations of the address and command.
-"""
+
+//Output Formatter Module which takes decoded NEC address and command,
+//formats them into a string, and sends it out via UART. 
+//The output format is "A:xx C:yy\n" where xx and yy are the hexadecimal 
+//representations of the address and command.
+//
 
 module output_formatter (
     input  logic       clk,
@@ -36,8 +36,8 @@ module output_formatter (
     always_ff @(posedge clk or negedge rst_n) begin
         // Reset Data
         if (!rst_n) begin
-            address_reg <= '0;
-            command_reg <= '0;
+            address_reg <= 8'h00;
+            command_reg <= 8'h00;
         end else if (valid_in && state == IDLE) begin
             address_reg <= address;
             command_reg <= command;
@@ -126,14 +126,14 @@ module output_formatter (
     // ==============================
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            uart_data   <= 0;
+            uart_data   <= 8'h00;;
             uart_tx_req <= 0;
         end else begin
             uart_tx_req <= 0; // default
 
             if (state == SEND && uart_ready) begin
                 uart_data   <= frame_bytes[byte_idx];
-                uart_tx_req <= (state == SEND) && uart_ready; // Signal to send byte
+                uart_tx_req <= 1; // Signal to send byte
             end
         end
     end
