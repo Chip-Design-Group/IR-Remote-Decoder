@@ -7,7 +7,6 @@ VERILOG_FILES:
   - ../EdgeDetector/src/edge_detector.sv
   - ../PulseTimer/src/pulse_timer.sv
   - ../NECDecoder/src/nec_decoder.sv
-  - ../NECDecoder/src/bit_decoder.sv
   - ../UART_TX/src/uart_tx.sv
   - ../OutputFormatter/src/output_formatter.sv
 
