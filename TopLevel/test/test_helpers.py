@@ -4,14 +4,15 @@ Helper functions for ir_decoder_top integration testing.
 Simulates real IR pulses on ir_in_PAD and captures UART output
 from uart_tx_PAD.
 
-Clock: 10 MHz (100ns period)
-1 µs = 10 clock cycles
+Clock: 100 MHz (10ns period)
+1 µs = 100 clock cycles
 """
 
 import cocotb
 from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles
 
-CLK_PERIOD_NS = 100  # 10 MHz
+CLK_PERIOD_NS = 100  # 10 MHz (Simulate core clock directly for speed)
+# print(f"DEBUG: CLK_PERIOD_NS set to {CLK_PERIOD_NS}ns (should be 100MHz)")
 
 
 def us_to_ns(us):
@@ -97,21 +98,21 @@ async def collect_uart_byte(dut, clocks_per_bit):
     """
     # Wait for start bit (falling edge on tx line)
     while int(dut.uart_tx_PAD.value) == 1:
-        await RisingEdge(dut.clk_PAD)
+        await RisingEdge(dut.clk_10mhz)
 
     # Sample at center of start bit
-    await ClockCycles(dut.clk_PAD, clocks_per_bit // 2)
+    await ClockCycles(dut.clk_10mhz, clocks_per_bit // 2)
     assert int(dut.uart_tx_PAD.value) == 0, "Start bit should be 0"
 
     # Sample 8 data bits at center
     byte_val = 0
     for i in range(8):
-        await ClockCycles(dut.clk_PAD, clocks_per_bit)
+        await ClockCycles(dut.clk_10mhz, clocks_per_bit)
         bit = int(dut.uart_tx_PAD.value)
         byte_val |= (bit << i)
 
     # Sample stop bit
-    await ClockCycles(dut.clk_PAD, clocks_per_bit)
+    await ClockCycles(dut.clk_10mhz, clocks_per_bit)
     assert int(dut.uart_tx_PAD.value) == 1, "Stop bit should be 1"
 
     return byte_val

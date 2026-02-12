@@ -31,18 +31,29 @@ NUM_OUTPUT_BYTES = 10   # "A:xx C:yy\n"
 # Setup Helpers
 # ============================================================
 async def setup(dut):
-    """Start clock, reset DUT, set IR idle HIGH."""
-    clock = Clock(dut.clk_PAD, CLK_PERIOD_NS, unit="ns")
+    """Start clock, reset DUT, set IR idle HIGH.
+    
+    NOTE: We drive clk_10mhz directly (internal signal) to speed up simulation.
+    Clock period = 100ns (10 MHz).
+    """
+    # Force initial value for clk_10mhz to avoid X
+    dut.clk_10mhz.value = 0
+    
+    # Drive internal clock directly
+    clock = Clock(dut.clk_10mhz, CLK_PERIOD_NS, unit="ns")
     cocotb.start_soon(clock.start())
 
     # IR idle = HIGH (no signal)
     dut.ir_in_PAD.value = 1
+    
+    # Initialize test button
+    dut.btn_test_PAD.value = 0
 
     # Reset
     dut.rst_n_PAD.value = 0
-    await ClockCycles(dut.clk_PAD, 10)
+    await ClockCycles(dut.clk_10mhz, 10)
     dut.rst_n_PAD.value = 1
-    await ClockCycles(dut.clk_PAD, 5)
+    await ClockCycles(dut.clk_10mhz, 5)
 
 
 # ============================================================
@@ -69,12 +80,16 @@ async def test_led_active_during_reception(dut):
 
     # Start AGC burst (9ms LOW)
     dut.ir_in_PAD.value = 0
-    # Wait long enough for edge detector + pulse timer to detect
-    await Timer(9_500_000, unit="ns")  # 9.5ms
+    await Timer(9_000_000, unit="ns")  # 9ms
+    
+    # End AGC burst (rising edge) -> pulse_timer triggers pulse_done
     dut.ir_in_PAD.value = 1
-    await Timer(500_000, unit="ns")  # small delay for edge propagation
+    
+    # Wait for propagation (edge_det -> pulse_timer -> decoder)
+    # 50 cycles of 10MHz (5000ns) is plenty of time
+    await ClockCycles(dut.clk_10mhz, 50)
 
-    assert int(dut.led_active_PAD.value) == 1, "led_active should be 1 during reception"
+    assert int(dut.led_active_PAD.value) == 1, "led_active should be 1 after AGC burst detected"
 
 
 @cocotb.test(timeout_time=500, timeout_unit="ms")

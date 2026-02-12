@@ -15,12 +15,10 @@
 // ============================================================
 
 module ir_decoder_top (
-    // parameter int SYSTEM_CLOCK_HZ = 100_000_000, 
-    // parameter int BAUD_RATE       = 9600
-// ) (
     input  logic clk_PAD,
     input  logic rst_n_PAD,
     input  logic ir_in_PAD,
+    input  logic btn_test_PAD,
 
     output logic uart_tx_PAD,
     output logic led_valid_PAD,
@@ -54,12 +52,83 @@ module ir_decoder_top (
     logic uart_tx_out;
     logic led_valid, led_error, led_active;
 
-    // Use global buffer for the derived clock to improve timing routing
-    // (Vivado will infer a BUFG automatically for high-fanout clocks mostly, 
-    // but assignment is direct here)
     assign clk   = clk_10mhz; 
     assign rst_n = rst_n_PAD;
-    assign ir_in = ir_in_PAD;
+
+    // ========================================================
+    // Internal Test Pattern Generator
+    // ========================================================
+    logic ir_test_signal;
+    logic [31:0] test_data = 32'hBA45FF00; // Cmd: 0x45 (~0xBA), Addr: 0x00 (~0xFF)
+    logic [19:0] test_timer;
+    logic [5:0]  test_bit_cnt;
+    enum logic [2:0] {
+        T_IDLE, T_LEADER_LOW, T_LEADER_HIGH, T_DATA_LOW, T_DATA_HIGH, T_STOP
+    } test_state;
+
+    // Simple pattern generator triggered by BTN1 (active-high)
+    always_ff @(posedge clk) begin
+        if (!rst_n) begin
+            test_state <= T_IDLE;
+            ir_test_signal <= 1'b1;
+            test_timer <= 0;
+            test_bit_cnt <= 0;
+        end else begin
+            case (test_state)
+                T_IDLE: begin
+                    ir_test_signal <= 1'b1;
+                    if (btn_test_PAD) begin // Trigger on button press
+                        test_state <= T_LEADER_LOW;
+                        test_timer <= 0;
+                    end
+                end
+                T_LEADER_LOW: begin // 9ms LOW
+                    ir_test_signal <= 1'b0;
+                    if (test_timer >= 90000) begin
+                        test_state <= T_LEADER_HIGH;
+                        test_timer <= 0;
+                    end else test_timer <= test_timer + 1;
+                end
+                T_LEADER_HIGH: begin // 4.5ms HIGH
+                    ir_test_signal <= 1'b1;
+                    if (test_timer >= 45000) begin
+                        test_state <= T_DATA_LOW;
+                        test_timer <= 0;
+                        test_bit_cnt <= 0;
+                    end else test_timer <= test_timer + 1;
+                end
+                T_DATA_LOW: begin // 560us LOW
+                    ir_test_signal <= 1'b0;
+                    if (test_timer >= 5600) begin
+                        test_state <= T_DATA_HIGH;
+                        test_timer <= 0;
+                    end else test_timer <= test_timer + 1;
+                end
+                T_DATA_HIGH: begin // 560us (0) or 1.69ms (1) HIGH
+                    ir_test_signal <= 1'b1;
+                    if ((test_data[test_bit_cnt] && test_timer >= 16900) || 
+                        (!test_data[test_bit_cnt] && test_timer >= 5600)) begin
+                        if (test_bit_cnt == 31) test_state <= T_STOP;
+                        else begin
+                            test_bit_cnt <= test_bit_cnt + 1;
+                            test_state <= T_DATA_LOW;
+                        end
+                        test_timer <= 0;
+                    end else test_timer <= test_timer + 1;
+                end
+                T_STOP: begin // Final 560us burst
+                    ir_test_signal <= 1'b0;
+                    if (test_timer >= 5600) begin
+                        test_state <= T_IDLE;
+                        ir_test_signal <= 1'b1;
+                    end else test_timer <= test_timer + 1;
+                end
+            endcase
+        end
+    end
+
+    // Combine external IR and test generator (OR since idle is HIGH)
+    assign ir_in = ir_in_PAD & ir_test_signal;
 
     assign uart_tx_PAD   = uart_tx_out;
     assign led_valid_PAD = led_valid;
