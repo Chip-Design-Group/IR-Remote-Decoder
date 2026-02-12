@@ -1,6 +1,9 @@
+import os
+from pathlib import Path
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
+from cocotb_tools.runner import get_runner
 
 # Test timing parameters
 CLK_PERIOD_NS = 100
@@ -216,15 +219,26 @@ async def test_extended_send_req_pulse(dut):
     expected = [0] + [(byte >> i) & 1 for i in range(8)] + [1]
     assert samples == expected, f"Extended send_req pulse affected transmission! Expected {expected}, got {samples}"
 
+def test_uart_tx_runner():
+    """Simulate the uart_tx using the Python runner."""
+    sim = os.getenv("SIM", "icarus")
+    proj_path = Path(__file__).resolve().parent.parent
+    sources = [proj_path / "src" / "uart_tx.sv"]
+
+    runner = get_runner(sim)
+    runner.build(
+        sources=sources,
+        hdl_toplevel="uart_tx",
+        always=True,
+        parameters={"CLOCKS_PER_BIT": CLOCKS_PER_BIT},
+        timescale=("1ns", "1ps"),
+    )
+
+    runner.test(
+        hdl_toplevel="uart_tx",
+        test_module="test_uart_tx",
+    )
+
 
 if __name__ == "__main__":
-    from cocotb_test.simulator import run
-
-    run(
-        verilog_sources=["src/uart_tx.sv"],
-        toplevel="uart_tx",
-        module="test_uart_tx",
-        parameters={"CLOCKS_PER_BIT": CLOCKS_PER_BIT},
-        timescale="1ns/1ps",
-        simulator="icarus",
-    )
+    test_uart_tx_runner()
