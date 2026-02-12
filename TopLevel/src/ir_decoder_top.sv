@@ -34,7 +34,7 @@ module ir_decoder_top (
 
     // Divide by 10: Toggle every 5 cycles
     always_ff @(posedge clk_PAD) begin
-        if (!rst_n_PAD) begin
+        if (rst_n_PAD) begin // Reset is now Active-High (Arty A7 BTN0)
             clk_div_cnt <= 0;
             clk_10mhz   <= 0;
         end else begin
@@ -52,8 +52,11 @@ module ir_decoder_top (
     logic uart_tx_out;
     logic led_valid, led_error, led_active;
 
-    assign clk   = clk_10mhz; 
-    assign rst_n = rst_n_PAD;
+    // Use global buffer for the derived clock to improve timing routing
+    BUFG clk_bufg_i (.I(clk_10mhz), .O(clk));
+    
+    // Internal rst_n is active-low for submodules
+    assign rst_n = ~rst_n_PAD;
 
     // ========================================================
     // Internal Test Pattern Generator

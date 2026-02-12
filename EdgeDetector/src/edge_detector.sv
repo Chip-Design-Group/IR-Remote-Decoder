@@ -17,8 +17,8 @@ module edge_detector (
     // 2-stage synchronizer to reduce metastability risk
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            ir_sync_ff1 <= 1'b0;
-            ir_sync_ff2 <= 1'b0;
+            ir_sync_ff1 <= 1'b1; // Reset to 1 (idle state)
+            ir_sync_ff2 <= 1'b1;
         end else begin
             ir_sync_ff1 <= ir_in_async;
             ir_sync_ff2 <= ir_sync_ff1;
@@ -28,7 +28,7 @@ module edge_detector (
     // Edge detect on the synchronized signal
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            ir_sync_prev <= 1'b0;
+            ir_sync_prev <= 1'b1; // Reset to 1
             edge_rise <= 1'b0;
             edge_fall <= 1'b0;
         end else begin

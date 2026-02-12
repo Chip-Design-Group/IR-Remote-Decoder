@@ -5,6 +5,9 @@ create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports { c
 ## Reset (Btn0)
 set_property -dict { PACKAGE_PIN D9    IOSTANDARD LVCMOS33 } [get_ports { rst_n_PAD }]; #IO_L6N_T0_VREF_16 Sch=btn[0]
 
+## Test Button (Btn1)
+set_property -dict { PACKAGE_PIN C9    IOSTANDARD LVCMOS33 } [get_ports { btn_test_PAD }]; #IO_L11P_T1_SRCC_16 Sch=btn[1]
+
 ## LEDs
 set_property -dict { PACKAGE_PIN H5    IOSTANDARD LVCMOS33 } [get_ports { led_valid_PAD }]; #IO_L24N_T3_35 Sch=led[4]
 set_property -dict { PACKAGE_PIN J5    IOSTANDARD LVCMOS33 } [get_ports { led_error_PAD }]; #IO_25_35 Sch=led[5]
