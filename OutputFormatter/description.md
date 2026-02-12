@@ -55,15 +55,22 @@ Example:
 
 :::mermaid
 stateDiagram-v2
-    IDLE --> SEND_A: valid_in
-    SEND_A --> SEND_COLON1: uart_ready
-    SEND_COLON1 --> SEND_ADDR_HIGH: uart_ready
-    SEND_ADDR_HIGH --> SEND_ADDR_LOW: uart_ready
-    SEND_ADDR_LOW --> SEND_SPACE: uart_ready
-    SEND_SPACE --> SEND_C: uart_ready
-    SEND_C --> SEND_COLON2: uart_ready
-    SEND_COLON2 --> SEND_CMD_HIGH: uart_ready
-    SEND_CMD_HIGH --> SEND_CMD_LOW: uart_ready
-    SEND_CMD_LOW --> SEND_NEWLINE: uart_ready
-    SEND_NEWLINE --> IDLE: uart_ready
+    direction LR  %% LR = Left to Right, besser lesbar
+
+    IDLE: Idle (wait for valid_in)
+    SEND: Send current byte
+    WAIT_ACK: 1-cycle delay for UART pulse
+    WAIT_UART: Wait for UART ready
+
+    %% Übergänge
+    IDLE --> SEND : valid_in = 1
+    SEND --> WAIT_ACK : uart_ready = 1
+    WAIT_ACK --> WAIT_UART : uart_ready = 1
+
+    %% Byte Index Logik
+    WAIT_UART --> SEND : uart_ready = 1, more bytes (byte_idx < 9)
+    WAIT_UART --> IDLE : uart_ready = 1, last byte (byte_idx = 9)
+
+    %% Warten wenn UART nicht ready
+    WAIT_ACK --> WAIT_ACK : uart_ready = 0
 :::
