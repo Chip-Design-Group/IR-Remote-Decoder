@@ -1,3 +1,12 @@
 librelane/
 pdk/
 venv/
+.venv/
+UART_TX/sim_build
+
+# Python
+__pycache__/
+*.pyc
+
+# CocoTB simulation
+sim_build/

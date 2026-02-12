@@ -1,0 +1,2 @@
+The Pulse Timer just formats the signal for the NECDecoder and checks how long a signal goes or if it is over the timeout limit.
+We hit an off-by-one issue because there are two valid conventions: either count the start edge as part of the pulse or count only the full cycles between edges. Both are fine, but the design and tests must agree on one convention. We chose to report full cycles between edges.
