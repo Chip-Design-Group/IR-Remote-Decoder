@@ -10,3 +10,14 @@ __pycache__/
 
 # CocoTB simulation
 sim_build/
+
+# Vivado
+vivado_project/
+vivado.log
+vivado.jou
+.Xil/
+*.bit
+*.str
+*.log
+*.jou
+/TopLevel/vivado*

@@ -14,9 +14,10 @@
 //   led_active = receiving signal (high during decoding)
 // ============================================================
 
+module ir_decoder_top (
     // parameter int SYSTEM_CLOCK_HZ = 100_000_000, 
     // parameter int BAUD_RATE       = 9600
-) (
+// ) (
     input  logic clk_PAD,
     input  logic rst_n_PAD,
     input  logic ir_in_PAD,
