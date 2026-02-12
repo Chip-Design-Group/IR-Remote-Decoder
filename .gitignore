@@ -1,5 +1,6 @@
 librelane/
 pdk/
+venv/
 .venv/
 UART_TX/sim_build
 
