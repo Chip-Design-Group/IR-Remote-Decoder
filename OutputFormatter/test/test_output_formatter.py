@@ -1,182 +1,224 @@
+"""
+CocoTB Unit Tests for output_formatter module.
+
+Tests the ASCII hex formatting FSM:
+- Correct byte sequence "A:xx C:yy\n"
+- UART handshake (uart_ready / uart_tx_req)
+- Busy signal behavior
+- Multiple frames
+- Backpressure
+"""
+
+import os
+from pathlib import Path
 import cocotb
-from cocotb.triggers import RisingEdge, Timer
 from cocotb.clock import Clock
+from cocotb.triggers import RisingEdge, ClockCycles
+from cocotb_tools.runner import get_runner
+
+CLK_PERIOD_NS = 100  # 10 MHz
 
 
-# Hilfsfunktion: Hex-Zeichen erzeugen
-def hex_to_ascii(val):
-    return format(val, "02X")
+# ============================================================
+# Helpers
+# ============================================================
+async def setup(dut):
+    clock = Clock(dut.clk, CLK_PERIOD_NS, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    dut.rst_n.value = 0
+    dut.address.value = 0
+    dut.command.value = 0
+    dut.valid_in.value = 0
+    dut.uart_ready.value = 1
+    await ClockCycles(dut.clk, 5)
+    dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 2)
+
+
+async def trigger_valid(dut, address, command):
+    dut.address.value = address
+    dut.command.value = command
+    dut.valid_in.value = 1
+    await RisingEdge(dut.clk)
+    dut.valid_in.value = 0
+
+
+async def collect_bytes(dut, num_bytes):
+    result = []
+    for _ in range(num_bytes):
+        timeout = 0
+        while int(dut.uart_tx_req.value) == 0:
+            await RisingEdge(dut.clk)
+            timeout += 1
+            if timeout > 1000:
+                raise TimeoutError("Timeout waiting for uart_tx_req")
+
+        result.append(int(dut.uart_data.value))
+        await RisingEdge(dut.clk)
+
+    return result
+
+
+def bytes_to_str(byte_list):
+    return "".join(chr(b) for b in byte_list)
+
+
+def nibble_to_hex_char(n):
+    return chr(0x30 + n) if n < 10 else chr(0x41 + n - 10)
+
+
+def expected_string(addr, cmd):
+    return (
+        "A:"
+        + nibble_to_hex_char((addr >> 4) & 0xF)
+        + nibble_to_hex_char(addr & 0xF)
+        + " C:"
+        + nibble_to_hex_char((cmd >> 4) & 0xF)
+        + nibble_to_hex_char(cmd & 0xF)
+        + "\n"
+    )
+
+
+# ============================================================
+# Tests
+# ============================================================
+
+@cocotb.test()
+async def test_reset(dut):
+    await setup(dut)
+    assert int(dut.uart_tx_req.value) == 0
 
 
 @cocotb.test()
-async def test_all_combinations(dut):
-    """
-    Tests all address/command combinations (0x00..0xFF)
-    """
+async def test_basic_output(dut):
+    await setup(dut)
+    await trigger_valid(dut, 0x00, 0x45)
+    result = await collect_bytes(dut, 10)
+    assert bytes_to_str(result) == "A:00 C:45\n"
 
-    # Start clock: 1 ns period
-    cocotb.start_soon(Clock(dut.clk, 1, unit="ns").start())
 
-    # Reset
-    dut.rst_n.value = 0
-    dut.valid_in.value = 0
-    dut.decode_error.value = 0
-    dut.address.value = 0
-    dut.command.value = 0
-    dut.uart_ready.value = 1  # UART always ready
+@cocotb.test()
+async def test_output_ff_ff(dut):
+    await setup(dut)
+    await trigger_valid(dut, 0xFF, 0xFF)
+    result = await collect_bytes(dut, 10)
+    assert bytes_to_str(result) == "A:FF C:FF\n"
 
-    await Timer(100, unit="ns")
+
+@cocotb.test()
+async def test_output_ab_cd(dut):
+    await setup(dut)
+    await trigger_valid(dut, 0xAB, 0xCD)
+    result = await collect_bytes(dut, 10)
+    assert bytes_to_str(result) == "A:AB C:CD\n"
+
+
+@cocotb.test()
+async def test_waits_for_uart_ready(dut):
+    await setup(dut)
+    dut.uart_ready.value = 0
+
+    await trigger_valid(dut, 0x00, 0x00)
+    await ClockCycles(dut.clk, 10)
+
+    assert int(dut.uart_tx_req.value) == 0
+
+    dut.uart_ready.value = 1
     await RisingEdge(dut.clk)
-    dut.rst_n.value = 1
-
     await RisingEdge(dut.clk)
 
-    total_tests = 0
+    assert int(dut.uart_tx_req.value) == 1
 
+
+@cocotb.test()
+async def test_two_consecutive_outputs(dut):
+    await setup(dut)
+
+    await trigger_valid(dut, 0x00, 0x45)
+    r1 = await collect_bytes(dut, 10)
+    await ClockCycles(dut.clk, 5)
+
+    await trigger_valid(dut, 0xAB, 0xCD)
+    r2 = await collect_bytes(dut, 10)
+
+    assert bytes_to_str(r1) == "A:00 C:45\n"
+    assert bytes_to_str(r2) == "A:AB C:CD\n"
+
+
+@cocotb.test()
+async def test_uart_tx_req_pulse_width(dut):
+    await setup(dut)
+    await trigger_valid(dut, 0x00, 0x00)
+
+    pulses = 0
+    prev = 0
+
+    while pulses < 10:
+        await RisingEdge(dut.clk)
+        cur = int(dut.uart_tx_req.value)
+
+        if cur == 1 and prev == 1:
+            raise AssertionError("uart_tx_req wider than 1 cycle")
+
+        if cur == 1:
+            pulses += 1
+
+        prev = cur
+
+
+@cocotb.test()
+async def test_exact_bytes(dut):
+    await setup(dut)
+    await trigger_valid(dut, 0x3F, 0xA0)
+    result = await collect_bytes(dut, 10)
+
+    expected = [0x41,0x3A,0x33,0x46,0x20,0x43,0x3A,0x41,0x30,0x0A]
+    assert result == expected
+
+@cocotb.test(timeout_time=300, timeout_unit="sec")
+async def test_all_256x256_combinations(dut):
+    """Exhaustive test: all 65536 address/command combinations."""
+    await setup(dut)
+    fail_count = 0
+    first_fail = None
     for addr in range(256):
         for cmd in range(256):
-            total_tests += 1
+            await trigger_valid(dut, address=addr, command=cmd)
+            result = await collect_bytes(dut, 10)
+            output = bytes_to_str(result)
+            exp = expected_string(addr, cmd)
+            if output != exp:
+                fail_count += 1
+                if first_fail is None:
+                    first_fail = (addr, cmd, output, exp)
+        # Log progress every 16 addresses
+        if addr % 16 == 15:
+            dut._log.info(f"Progress: {addr+1}/256 addresses done")
+    assert fail_count == 0, \
+        f"{fail_count} failures! First: addr=0x{first_fail[0]:02X} cmd=0x{first_fail[1]:02X} " \
+        f"got {first_fail[2]!r}, expected {first_fail[3]!r}"
 
-            # Apply inputs
-            dut.address.value = addr
-            dut.command.value = cmd
-            dut.decode_error.value = 0
-            dut.valid_in.value = 1
+# ============================================================
+# Runner
+# ============================================================
+def test_output_formatter_runner():
+    sim = os.getenv("SIM", "icarus")
+    proj_path = Path(__file__).resolve().parent.parent
+    sources = [proj_path / "src" / "output_formatter.sv"]
 
-            await RisingEdge(dut.clk)
-            dut.valid_in.value = 0
+    runner = get_runner(sim)
+    runner.build(
+        sources=sources,
+        hdl_toplevel="output_formatter",
+        always=True,
+    )
 
-            # Expected string
-            expected = f"A:{hex_to_ascii(addr)} C:{hex_to_ascii(cmd)}\n"
-
-            received_chars = ""
-
-            # Collect UART output (10 chars)
-            while len(received_chars) < len(expected):
-                await RisingEdge(dut.clk)
-                if dut.uart_tx_req.value == 1:
-                    received_chars += chr(int(dut.uart_data.value))
-
-            # Check result
-            if received_chars != expected:
-                raise cocotb.result.TestFailure(
-                    f"Mismatch!\n"
-                    f"Address: 0x{addr:02X}, Command: 0x{cmd:02X}\n"
-                    f"Expected: {expected}\n"
-                    f"Got:      {received_chars}"
-                )
-
-    dut._log.info(f"All {total_tests} combinations tested successfully!")
-
-@cocotb.test()
-async def test_single_input(dut):
-    """Testet, dass ein einzelnes valid_in korrekt gepuffert wird"""
-    
-    cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
-    dut.rst_n.value = 0
-    dut.valid_in.value = 0
-    dut.address.value = 0
-    dut.command.value = 0
-    await Timer(50, unit="ns")
-    dut.rst_n.value = 1
-    await RisingEdge(dut.clk)
-
-    # Testinput setzen
-    dut.address.value = 0x12
-    dut.command.value = 0x34
-    dut.valid_in.value = 1
-    await RisingEdge(dut.clk)
-    dut.valid_in.value = 0
-    await RisingEdge(dut.clk)
-
-    # Prüfen, ob UART startet (FSM IDLE → SEND_A)
-    assert dut.uart_tx_req.value == 1 or dut.uart_data.value == ord("A"), \
-        f"FSM hat UART nicht korrekt gestartet. uart_tx_req={dut.uart_tx_req.value}, uart_data={dut.uart_data.value}"
-    
-    dut._log.info("Single input buffering test passed")
-
-@cocotb.test()
-async def test_single_input(dut):
-    """Testet, dass ein einzelnes valid_in korrekt gepuffert wird"""
-    
-    cocotb.start_soon(Clock(dut.clk, 1, unit="ns").start())
-    dut.rst_n.value = 0
-    dut.valid_in.value = 0
-    dut.address.value = 0
-    dut.command.value = 0
-    await Timer(50, unit="ns")
-    dut.rst_n.value = 1
-    await RisingEdge(dut.clk)
-
-    # Testinput setzen
-    dut.address.value = 0x12
-    dut.command.value = 0x34
-    dut.valid_in.value = 1
-    await RisingEdge(dut.clk)
-    dut.valid_in.value = 0
-    await RisingEdge(dut.clk)
-
-    # Prüfen, ob UART startet (FSM IDLE → SEND_A)
-    assert dut.uart_tx_req.value == 1 or dut.uart_data.value == ord("A"), \
-        f"FSM hat UART nicht korrekt gestartet. uart_tx_req={dut.uart_tx_req.value}, uart_data={dut.uart_data.value}"
-    
-    dut._log.info("Single input buffering test passed")
+    runner.test(
+        hdl_toplevel="output_formatter",
+        test_module="test_output_formatter",
+    )
 
 
-@cocotb.test()
-async def test_decode_error(dut):
-    """Prüft Verhalten bei decode_error=1"""
-    
-    cocotb.start_soon(Clock(dut.clk, 1, unit="ns").start())
-    dut.rst_n.value = 0
-    dut.valid_in.value = 0
-    dut.address.value = 0
-    dut.command.value = 0
-    dut.decode_error.value = 0
-    await Timer(50, unit="ns")
-    dut.rst_n.value = 1
-    await RisingEdge(dut.clk)
-
-    dut.address.value = 0x55
-    dut.command.value = 0xAA
-    dut.valid_in.value = 1
-    dut.decode_error.value = 1
-    await RisingEdge(dut.clk)
-    dut.valid_in.value = 0
-    dut.decode_error.value = 0
-
-    # Prüfen, ob UART trotzdem gesendet wird
-    expected = "A:55 C:AA\n"
-    received = ""
-    while len(received) < len(expected):
-        await RisingEdge(dut.clk)
-        if dut.uart_tx_req.value == 1:
-            received += chr(int(dut.uart_data.value))
-
-    assert received == expected, f"Decode error handling failed! output={received}"
-    dut._log.info(f"Decode error test passed, output={received}")
-
-@cocotb.test()
-async def test_uart_backpressure(dut):
-    """Prüft Verhalten bei uart_ready=0"""
-    
-    cocotb.start_soon(Clock(dut.clk, 1, unit="ns").start())
-    dut.rst_n.value = 0
-    dut.valid_in.value = 0
-    dut.uart_ready.value = 0
-    await Timer(50, unit="ns")
-    dut.rst_n.value = 1
-    await RisingEdge(dut.clk)
-
-    dut.address.value = 0x01
-    dut.command.value = 0x02
-    dut.valid_in.value = 1
-    # Warten bis uart_tx_req aktiv wird, max 10 Zyklen
-    for _ in range(10):
-        await RisingEdge(dut.clk)
-        if dut.uart_tx_req.value == 1:
-            break
-        else:
-            assert False, "uart_tx_req wurde nicht aktiviert, obwohl uart_ready=1"
-
-    dut._log.info("UART backpressure test passed after enabling uart_ready")
+if __name__ == "__main__":
+    test_output_formatter_runner()

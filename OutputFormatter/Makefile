@@ -4,7 +4,7 @@ SIM = icarus
 # Top-level module and testbench
 TOPLEVEL = output_formatter
 export PYTHONPATH := $(PWD)/test:$(PYTHONPATH)
-COCOTB_TEST_MODULES = test_output_formatter
+COCOTB_TEST_MODULES = test_output_formatter1
 # Paths
 VERILOG_SOURCES = /workspaces/IR-Remote-Decoder/OutputFormatter/src/output_formatter.sv
 
