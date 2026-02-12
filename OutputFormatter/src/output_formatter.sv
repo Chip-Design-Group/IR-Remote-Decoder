@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module output_formatter (
     input  logic       clk,
     input  logic       rst_n,
@@ -24,10 +26,13 @@ module output_formatter (
         SEND_COLON2,
         SEND_CMD_HIGH,
         SEND_CMD_LOW,
-        SEND_NEWLINE
+        SEND_NEWLINE,
+        WAIT_ACK,       // 1-cycle delay for UART to deassert ready
+        WAIT_UART       // Wait for UART to finish (ready goes high again)
     } state_t;
 
     state_t state, next_state;
+    state_t return_state, return_state_next;
 
     logic [7:0] address_reg;
     logic [7:0] command_reg;
@@ -52,28 +57,80 @@ module output_formatter (
 
     // State register
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n)
-            state <= IDLE;
-        else
-            state <= next_state;
+        if (!rst_n) begin
+            state        <= IDLE;
+            return_state <= IDLE;
+        end else begin
+            state        <= next_state;
+            return_state <= return_state_next;
+        end
     end
 
     // Next-state logic
     always_comb begin
-        next_state = state;
+        next_state        = state;
+        return_state_next = return_state;
 
         case (state)
             IDLE: if (valid_in) next_state = SEND_A;
-            SEND_A:        if (uart_ready) next_state = SEND_COLON1;
-            SEND_COLON1:   if (uart_ready) next_state = SEND_ADDR_HIGH;
-            SEND_ADDR_HIGH:if (uart_ready) next_state = SEND_ADDR_LOW;
-            SEND_ADDR_LOW: if (uart_ready) next_state = SEND_SPACE;
-            SEND_SPACE:    if (uart_ready) next_state = SEND_C;
-            SEND_C:        if (uart_ready) next_state = SEND_COLON2;
-            SEND_COLON2:   if (uart_ready) next_state = SEND_CMD_HIGH;
-            SEND_CMD_HIGH: if (uart_ready) next_state = SEND_CMD_LOW;
-            SEND_CMD_LOW:  if (uart_ready) next_state = SEND_NEWLINE;
-            SEND_NEWLINE:  if (uart_ready) next_state = IDLE;
+
+            SEND_A: if (uart_ready) begin
+                next_state = WAIT_ACK;
+                return_state_next = SEND_COLON1;
+            end
+
+            SEND_COLON1: if (uart_ready) begin
+                next_state = WAIT_ACK;
+                return_state_next = SEND_ADDR_HIGH;
+            end
+
+            SEND_ADDR_HIGH: if (uart_ready) begin
+                next_state = WAIT_ACK;
+                return_state_next = SEND_ADDR_LOW;
+            end
+
+            SEND_ADDR_LOW: if (uart_ready) begin
+                next_state = WAIT_ACK;
+                return_state_next = SEND_SPACE;
+            end
+
+            SEND_SPACE: if (uart_ready) begin
+                next_state = WAIT_ACK;
+                return_state_next = SEND_C;
+            end
+
+            SEND_C: if (uart_ready) begin
+                next_state = WAIT_ACK;
+                return_state_next = SEND_COLON2;
+            end
+
+            SEND_COLON2: if (uart_ready) begin
+                next_state = WAIT_ACK;
+                return_state_next = SEND_CMD_HIGH;
+            end
+
+            SEND_CMD_HIGH: if (uart_ready) begin
+                next_state = WAIT_ACK;
+                return_state_next = SEND_CMD_LOW;
+            end
+
+            SEND_CMD_LOW: if (uart_ready) begin
+                next_state = WAIT_ACK;
+                return_state_next = SEND_NEWLINE;
+            end
+
+            SEND_NEWLINE: if (uart_ready) begin
+                next_state = WAIT_ACK;
+                return_state_next = IDLE;
+            end
+
+            // 1-cycle delay: let UART latch send_req and deassert ready
+            WAIT_ACK: next_state = WAIT_UART;
+
+            // Wait for UART to finish transmitting (ready goes high again)
+            WAIT_UART: if (uart_ready) begin
+                next_state = return_state;
+            end
         endcase
     end
 
@@ -97,6 +154,7 @@ module output_formatter (
                     SEND_CMD_HIGH:  begin uart_data <= hex_to_ascii(command_reg[7:4]); uart_tx_req <= 1; end
                     SEND_CMD_LOW:   begin uart_data <= hex_to_ascii(command_reg[3:0]); uart_tx_req <= 1; end
                     SEND_NEWLINE:   begin uart_data <= 8'h0A; uart_tx_req <= 1; end
+                    default: ;
                 endcase
             end
         end
