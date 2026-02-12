@@ -1,81 +1,46 @@
-# 📡 IR Remote Decoder (ASIC)
+# IR Remote Decoder Project
 
-Ein dedizierter ASIC zur Dekodierung von Infrarot-Fernbedienungen (NEC-Protokoll), entwickelt für den IHP SG13G2 Prozess.
+Willkommen im **IR Remote Decoder** Projekt!
 
----
+Dieses Repository enthält den kompletten Quellcode für einen hardwarebasierten Infrarot-Empfänger, optimiert für FPGAs (speziell für die IHP SG13G2 Technologie, aber generisch verwendbar).
 
-## 📖 Projekt-Beschreibung
+## 🚀 Features
 
-Dieses Projekt implementiert einen Hardware-Decoder für das weit verbreitete **NEC-Infrarot-Protokoll** (genutzt von Samsung, LG, etc.). Der Chip empfängt Signale von einem IR-Empfänger (z.B. TSOP38238), dekodiert die Befehle in Echtzeit und gibt sie über eine **UART-Schnittstelle** aus.
+- **Vollständige Hardware-Dekodierung** des NEC-Infrarot-Protokolls.
+- **Micro-UART** zur Ausgabe der Daten an einen PC.
+- **Modulares Design** mit sauber getrennten Komponenten.
+- **Umfassende Testsuite** basierend auf Python und CocoTB.
 
-Das Design ist für die Fertigung als ASIC ausgelegt und nutzt den **OpenLane/Librelane** Flow.
+## 📂 Struktur
 
-### 🚀 Hauptfunktionen
+Das Projekt ist modular aufgebaut. Jedes Modul befindet sich in einem eigenen Unterordner mit Quellcode, Tests und Dokumentation.
 
-*   **NEC-Dekodierung:** Echtzeit-Dekodierung von 32-Bit NEC-Frames (Address + Command).
-*   **UART-Interface:** Serielle Ausgabe der dekodierten Daten (9600 Baud, 8N1).
-*   **Präzises Timing:** Hardware-basierte Pulse-Width-Messung (±0.1µs Genauigkeit).
-*   **Fehlererkennung:** Checksum-Validierung und Timeout-Erkennung.
-*   **Status-LEDs:** Visuelles Feedback für gültige Signale oder Fehler.
+| Modul | Beschreibung |
+| :--- | :--- |
+| [**TopLevel**](TopLevel/README.md) | Das Hauptmodul, das alle Komponenten verbindet. |
+| [**NECDecoder**](NECDecoder/README.md) | Kernlogik zur Dekodierung des NEC-Protokolls. |
+| [**EdgeDetector**](EdgeDetector/README.md) | Signalaufbereitung und Flankenerkennung. |
+| [**PulseTimer**](PulseTimer/README.md) | Präzise Zeitmessung der IR-Pulse. |
+| [**OutputFormatter**](OutputFormatter/README.md) | Konvertierung in menschenlesbaren Text. |
+| [**UART_TX**](UART_TX/README.md) | Serielle Schnittstelle zum PC. |
 
----
+## 🛠️ Schnellstart
 
-## 📂 Projekt-Status & Dokumentation
+### Voraussetzungen
+- Icarus Verilog (Simulator)
+- Python 3
+- `cocotb`, `cocotb-test`, `pytest`
 
-Dieses Repository befindet sich in der Aufbauphase. Detaillierte Informationen zur Architektur, den Modulen, dem Zeitplan und der Test-Strategie finden sich in der Projektbeschreibung:
+### Tests ausführen
 
-👉 **[Detaillierte Projektbeschreibung & Spezifikation ansehen](PROJECT_IR_REMOTE_DECODER.md)**
-
-### Geplante Struktur
-Das Projekt wird modular aufgebaut sein (siehe `PROJECT_IR_REMOTE_DECODER.md` für Details):
-
-*   `src/`: SystemVerilog Quellcode (`edge_detector`, `nec_decoder`, `uart_tx`, etc.)
-*   `test/`: Python/CocoTB Testbenches
-*   `librelane/`: ASIC Build-Flow Submodule
-*   `pdk/`: Process Design Kit (IHP SG13G2)
-
----
-
-## 🛠️ Voraussetzungen
-
-Um das Projekt zu simulieren und zu bauen, werden folgende Tools benötigt:
-
-1.  **Simulation:** [Icarus Verilog](http://iverilog.icarus.com/) & [GTKWave](http://gtkwave.sourceforge.net/)
-2.  **Testing:** [Python 3](https://www.python.org/) & [CocoTB](https://www.cocotb.org/)
-3.  **ASIC Flow:** [Librelane](https://github.com/The-OpenROAD-Project/OpenLane) (via Docker oder Nix)
-
-### Installation (Ubuntu/Debian)
+Um sicherzustellen, dass alles funktioniert, können Sie alle Tests im Repository auf einmal ausführen:
 
 ```bash
-# Simulation & Tools
-sudo apt install iverilog gtkwave python3-pip git
-
-# Python Dependencies
-pip3 install cocotb pytest coverage
+pytest
 ```
 
----
+Dies führt Hunderte von Tests über alle Module hinweg aus, von einfachen Unit-Tests bis hin zu komplexen System-Integrationstests.
 
-## 🚀 Erste Schritte
+## 📝 Lizenz
 
-1.  **Repository klonen:**
-    ```bash
-    git clone --recursive <repo-url>
-    cd IR-Remote-Decoder
-    ```
-
-2.  **Umgebung prüfen:**
-    Stellen Sie sicher, dass alle Submodule (`librelane`, `pdk`) initialisiert sind:
-    ```bash
-    git submodule update --init --recursive
-    ```
-
-3.  **Entwicklung:**
-    Folgen Sie dem 10-Tage-Plan in der [Projektbeschreibung](PROJECT_IR_REMOTE_DECODER.md), um die Module zu implementieren.
-
----
-
-## 👥 Team & Lizenz
-
-Entwickelt im Rahmen des Moduls "ASIC Design" (Semester 5).
-Siehe `PROJECT_IR_REMOTE_DECODER.md` für die detaillierte Team-Aufteilung.
+Dieses Projekt ist Open Source. Fühlen Sie sich frei, es zu forkem, zu verbessern und Pull Requests zu senden!

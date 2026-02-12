@@ -1,0 +1,27 @@
+stateDiagram-v2
+    [*] --> IDLE
+    
+    IDLE --> RECEIVING : IR Flanke erkannt (Start Burst)
+    note right of IDLE
+       Wartet auf Signal
+       (ir_in_PAD = 0)
+    end note
+    
+    RECEIVING --> DECODING : Pulsmessung läuft
+    
+    DECODING --> VALID_CHECK : 32 Bits empfangen
+    DECODING --> ERROR : Protokollfehler / Timeout
+    
+    VALID_CHECK --> FORMATTING : Checksum OK
+    VALID_CHECK --> ERROR : Checksum Falsch
+    
+    ERROR --> IDLE : Reset / Timeout
+    
+    FORMATTING --> UART_TX : Byte konvertiert
+    note right of FORMATTING
+       Wandelt 0x45
+       in "4", "5"
+    end note
+    
+    UART_TX --> FORMATTING : Nächstes Zeichen
+    UART_TX --> IDLE : "\n" gesendet (Ende)

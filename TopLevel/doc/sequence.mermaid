@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant User
+    participant IR_Sensor
+    participant FPGA_Top
+    participant PC_UART
+    
+    User->>IR_Sensor: Drückt Taste (z.B. Power)
+    IR_Sensor->>FPGA_Top: Sendet NEC Frame (67.5ms)
+    Note over FPGA_Top: EdgeDetector synchronisiert Signal
+    Note over FPGA_Top: PulseTimer misst Pulsbreiten
+    Note over FPGA_Top: NECDecoder validiert Frame
+    FPGA_Top->>FPGA_Top: set data_valid = 1
+    Note over FPGA_Top: Formatter wandelt Byte in ASCII
+    FPGA_Top->>PC_UART: UART TX: "A"
+    FPGA_Top->>PC_UART: UART TX: ":"
+    FPGA_Top->>PC_UART: UART TX: "0"
+    FPGA_Top->>PC_UART: UART TX: "0"
+    FPGA_Top->>PC_UART: ...
+    FPGA_Top->>PC_UART: UART TX: "\n"
+    Note right of PC_UART: Terminal zeigt: "A:00 C:45"

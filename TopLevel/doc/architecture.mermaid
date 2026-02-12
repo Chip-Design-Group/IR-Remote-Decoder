@@ -1,0 +1,14 @@
+graph LR
+    IR(IR Receiver) -->|ir_in_async| Edge[Edge Detector]
+    Edge -->|ir_in_sync| Timer[Pulse Timer]
+    Edge -->|edge_rise/fall| Timer
+    Timer -->|pulse_data| NEC[NEC Decoder]
+    NEC -->|addr/cmd| Format[Output Formatter]
+    Format -->|UART Stream| UART[UART TX]
+    UART -->|TX| PC(PC Terminal)
+
+    clk((10 MHz)) --> Edge
+    clk --> Timer
+    clk --> NEC
+    clk --> Format
+    clk --> UART
