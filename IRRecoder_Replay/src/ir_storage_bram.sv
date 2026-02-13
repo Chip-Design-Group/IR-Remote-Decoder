@@ -10,22 +10,22 @@
 //   rd_data, rd_valid
 //------------------------------------------------------------------------------
 
+import ir_types_pkg::*;
+
 module ir_storage_bram #(
-  parameter int WORD_WIDTH = 32,
-  parameter int SLOT_COUNT = 8,
-  parameter int ADDR_WIDTH = $clog2(SLOT_COUNT)
+  parameter int SLOT_COUNT = IR_SLOT_COUNT
 ) (
   input  logic                  clk,
   input  logic                  rst_n,
 
   input  logic                  wr_en,
-  input  logic [ADDR_WIDTH-1:0] wr_addr,
-  input  logic [WORD_WIDTH-1:0] wr_data,
+  input  ir_slot_t              wr_addr,
+  input  ir_word_t              wr_data,
 
   input  logic                  rd_en,
-  input  logic [ADDR_WIDTH-1:0] rd_addr,
+  input  ir_slot_t              rd_addr,
 
-  output logic [WORD_WIDTH-1:0] rd_data,
+  output ir_word_t              rd_data,
   output logic                  rd_valid
 );
 

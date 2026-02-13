@@ -10,6 +10,8 @@
 //   ready
 //------------------------------------------------------------------------------
 
+import ir_types_pkg::*;
+
 module ir_tx #(
   parameter int CLK_HZ     = 10_000_000,
   parameter int CARRIER_HZ = 38_000

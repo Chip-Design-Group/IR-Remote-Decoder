@@ -5,27 +5,26 @@
 // Rein:
 //   clk, rst_n
 //   record_req, replay_req, slot_sel
-//   dec_valid, dec_address, dec_command, dec_flags
+//   dec_valid, dec_payload
 // Raus:
 //   ir_led_out
 //   status_signale: rec_done, rep_done, busy, error
 //------------------------------------------------------------------------------
 
+import ir_types_pkg::*;
+
 module ir_recorder_replay_top #(
-  parameter int SLOT_COUNT = 8,
-  parameter int SLOT_WIDTH = $clog2(SLOT_COUNT)
+  parameter int SLOT_COUNT = IR_SLOT_COUNT
 ) (
   input  logic                  clk,
   input  logic                  rst_n,
 
   input  logic                  record_req,
   input  logic                  replay_req,
-  input  logic [SLOT_WIDTH-1:0] slot_sel,
+  input  ir_slot_t              slot_sel,
 
   input  logic                  dec_valid,
-  input  logic [15:0]           dec_address,
-  input  logic [7:0]            dec_command,
-  input  logic [7:0]            dec_flags,
+  input  ir_payload_t           dec_payload,
 
   output logic                  ir_led_out,
   output logic                  rec_done,

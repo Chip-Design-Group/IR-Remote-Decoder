@@ -9,29 +9,28 @@
 //   enc_ready, tx_ready
 // Raus:
 //   mem_rd_en, mem_rd_addr
-//   enc_start, enc_address, enc_command, enc_flags
+//   enc_start, enc_payload
 //   busy, done, error
 //------------------------------------------------------------------------------
 
+import ir_types_pkg::*;
+
 module ir_replay_fsm #(
-  parameter int SLOT_COUNT = 8,
-  parameter int SLOT_WIDTH = $clog2(SLOT_COUNT)
+  parameter int SLOT_COUNT = IR_SLOT_COUNT
 ) (
   input  logic                  clk,
   input  logic                  rst_n,
 
   input  logic                  replay_req,
-  input  logic [SLOT_WIDTH-1:0] target_slot,
+  input  ir_slot_t              target_slot,
 
   output logic                  mem_rd_en,
-  output logic [SLOT_WIDTH-1:0] mem_rd_addr,
-  input  logic [31:0]           mem_rd_data,
+  output ir_slot_t              mem_rd_addr,
+  input  ir_word_t              mem_rd_data,
   input  logic                  mem_rd_valid,
 
   output logic                  enc_start,
-  output logic [15:0]           enc_address,
-  output logic [7:0]            enc_command,
-  output logic [7:0]            enc_flags,
+  output ir_payload_t           enc_payload,
   input  logic                  enc_ready,
   input  logic                  tx_ready,
 
@@ -41,7 +40,7 @@ module ir_replay_fsm #(
 );
 
   // TODO: FSM fuer Replay bauen (Idle -> Read -> DecodeWord -> StartEncode -> Done).
-  // TODO: mem_rd_data entpacken: addr/cmd/flags.
+  // TODO: mem_rd_data mit ir_unpack_word(...) entpacken.
   // TODO: Start nur wenn enc_ready && tx_ready.
 
 endmodule
