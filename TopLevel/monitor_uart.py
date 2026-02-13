@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 import serial
-import sys
-import serial
 import serial.tools.list_ports
 import sys
 import time
@@ -16,11 +14,13 @@ def read_from_port(port, baudrate=9600):
         ser = serial.Serial(port, baudrate, timeout=1)
         print(f"Connected to {port} at {baudrate} baud.")
         print("Waiting for data... (Press Ctrl+C to stop)")
+        line_buf = bytearray()
         
         while True:
             if ser.in_waiting > 0:
                 # Read one byte
                 data = ser.read(1)
+                line_buf.extend(data)
                 # Print hex and ASCII representation
                 hex_val = data.hex()
                 try:
@@ -31,6 +31,15 @@ def read_from_port(port, baudrate=9600):
                     ascii_val = '.'
                 
                 print(f"Received: 0x{hex_val} ({ascii_val})")
+
+                # Also print complete escaped line, e.g. A:AA C:BB\n
+                if data == b"\n":
+                    try:
+                        frame = line_buf.decode("ascii").replace("\n", "\\n")
+                    except UnicodeDecodeError:
+                        frame = repr(bytes(line_buf))
+                    print(f"Frame: {frame}")
+                    line_buf.clear()
                 
             time.sleep(0.01)
 
