@@ -27,6 +27,11 @@ module ir_decoder_top (
     output logic led_heartbeat_PAD
 );
 
+    // Core interconnect signals
+    logic clk, rst_n, ir_in;
+    logic uart_tx_out;
+    logic led_valid, led_error, led_active;
+
     // ========================================================
     // Clock Divider: 100 MHz -> 10 MHz
     // ========================================================
@@ -36,7 +41,7 @@ module ir_decoder_top (
 `ifndef SIMULATION
     // Divide by 10: Toggle every 5 cycles
     always_ff @(posedge clk_PAD) begin
-        if (rst_n_PAD) begin // Reset is now Active-High (Arty A7 BTN0)
+        if (!rst_n) begin // Reset active-low (run=1, reset=0)
             clk_div_cnt <= 0;
             clk_10mhz   <= 0;
         end else begin
@@ -54,10 +59,6 @@ module ir_decoder_top (
 `endif
 
     // Use the divided clock for the core logic
-    logic clk, rst_n, ir_in;
-    logic uart_tx_out;
-    logic led_valid, led_error, led_active;
-
 `ifdef SIMULATION
     assign clk = clk_10mhz;
 `else
@@ -65,93 +66,110 @@ module ir_decoder_top (
     BUFG clk_bufg_i (.I(clk_10mhz), .O(clk));
 `endif
     
-    // Internal rst_n is active-low for submodules
-    // Internal rst_n is active-low (BTN0 is active high, BTN0 pressed -> Reset)
-    // Wait... if BTN0 is HIGH (Reset), then rst_n (Active Low) should be LOW.
-    // So current logic `assign rst_n = ~rst_n_PAD` IS correct for BTN0 (D9).
-    // If I switch to C2 (CK_RST, Active Low), then `assign rst_n = rst_n_PAD`.
-    // I am switching to C2.
-    // assign rst_n = rst_n_PAD; // CK_RST (C2) is already Active Low.
-    
-    // Debug mode: force core out of reset to isolate IO/UART behavior.
+`ifdef DEBUG_NO_IR
+    // Bring-up mode without IR sensor: keep core running independent of reset switch.
     assign rst_n = 1'b1;
+`elsif SIMULATION
+    // Keep legacy active-high reset behavior in cocotb tests.
+    assign rst_n = ~rst_n_PAD;
+`else
+    // Hardware: SW0 is active-low reset (up=1 run, down=0 reset).
+    assign rst_n = rst_n_PAD;
+`endif
 
+    // Synchronize BTN1 into clk domain and create one-cycle trigger pulse.
+    logic btn_ff1, btn_ff2, btn_prev;
+    logic btn_pulse;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            btn_ff1  <= 1'b0;
+            btn_ff2  <= 1'b0;
+            btn_prev <= 1'b0;
+        end else begin
+            btn_ff1  <= btn_test_PAD;
+            btn_ff2  <= btn_ff1;
+            btn_prev <= btn_ff2;
+        end
+    end
+    // Trigger only on rising edge: one frame per button press.
+    assign btn_pulse = btn_ff2 & ~btn_prev;
 
     // ========================================================
-    // Internal Test Pattern Generator
+    // Internal NEC Test Pattern Generator (optional)
+    // Enable with DEBUG_NO_IR for bring-up without IR sensor.
     // ========================================================
-`ifndef SIMULATION
+`ifdef DEBUG_NO_IR
     logic ir_test_signal;
-    logic [31:0] test_data = 32'hBA45FF00; // Cmd: 0x45 (~0xBA), Addr: 0x00 (~0xFF)
+    logic [31:0] test_data = 32'hBA45FF00; // Addr=0x00, Cmd=0x45 (LSB-first packed)
     logic [19:0] test_timer;
     logic [5:0]  test_bit_cnt;
     enum logic [2:0] {
         T_IDLE, T_LEADER_LOW, T_LEADER_HIGH, T_DATA_LOW, T_DATA_HIGH, T_STOP
     } test_state;
 
-    // Simple pattern generator triggered by BTN1 (active-high)
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            test_state <= T_IDLE;
+            test_state     <= T_IDLE;
             ir_test_signal <= 1'b1;
-            test_timer <= 0;
-            test_bit_cnt <= 0;
+            test_timer     <= 20'd0;
+            test_bit_cnt   <= 6'd0;
         end else begin
             case (test_state)
                 T_IDLE: begin
                     ir_test_signal <= 1'b1;
-                    if (1'b0) begin // Trigger disabled for debug (btn_test_PAD used for formatter)
+                    if (btn_pulse) begin
                         test_state <= T_LEADER_LOW;
-                        test_timer <= 0;
+                        test_timer <= 20'd0;
                     end
                 end
-                T_LEADER_LOW: begin // 9ms LOW
-                    ir_test_signal <= 1'b0;
-                    if (test_timer >= 90000) begin
+                T_LEADER_LOW: begin
+                    ir_test_signal <= 1'b0; // 9ms mark
+                    if (test_timer >= 20'd90000) begin
                         test_state <= T_LEADER_HIGH;
-                        test_timer <= 0;
-                    end else test_timer <= test_timer + 1;
+                        test_timer <= 20'd0;
+                    end else test_timer <= test_timer + 1'b1;
                 end
-                T_LEADER_HIGH: begin // 4.5ms HIGH
-                    ir_test_signal <= 1'b1;
-                    if (test_timer >= 45000) begin
-                        test_state <= T_DATA_LOW;
-                        test_timer <= 0;
-                        test_bit_cnt <= 0;
-                    end else test_timer <= test_timer + 1;
+                T_LEADER_HIGH: begin
+                    ir_test_signal <= 1'b1; // 4.5ms space
+                    if (test_timer >= 20'd45000) begin
+                        test_state   <= T_DATA_LOW;
+                        test_timer   <= 20'd0;
+                        test_bit_cnt <= 6'd0;
+                    end else test_timer <= test_timer + 1'b1;
                 end
-                T_DATA_LOW: begin // 560us LOW
-                    ir_test_signal <= 1'b0;
-                    if (test_timer >= 5600) begin
+                T_DATA_LOW: begin
+                    ir_test_signal <= 1'b0; // 560us mark
+                    if (test_timer >= 20'd5600) begin
                         test_state <= T_DATA_HIGH;
-                        test_timer <= 0;
-                    end else test_timer <= test_timer + 1;
+                        test_timer <= 20'd0;
+                    end else test_timer <= test_timer + 1'b1;
                 end
-                T_DATA_HIGH: begin // 560us (0) or 1.69ms (1) HIGH
-                    ir_test_signal <= 1'b1;
-                    if ((test_data[test_bit_cnt] && test_timer >= 16900) || 
-                        (!test_data[test_bit_cnt] && test_timer >= 5600)) begin
-                        if (test_bit_cnt == 31) test_state <= T_STOP;
+                T_DATA_HIGH: begin
+                    ir_test_signal <= 1'b1; // 560us/1690us space
+                    if ((test_data[test_bit_cnt] && test_timer >= 20'd16900) ||
+                        (!test_data[test_bit_cnt] && test_timer >= 20'd5600)) begin
+                        if (test_bit_cnt == 6'd31) test_state <= T_STOP;
                         else begin
-                            test_bit_cnt <= test_bit_cnt + 1;
-                            test_state <= T_DATA_LOW;
+                            test_bit_cnt <= test_bit_cnt + 1'b1;
+                            test_state   <= T_DATA_LOW;
                         end
-                        test_timer <= 0;
-                    end else test_timer <= test_timer + 1;
+                        test_timer <= 20'd0;
+                    end else test_timer <= test_timer + 1'b1;
                 end
-                T_STOP: begin // Final 560us burst
-                    ir_test_signal <= 1'b0;
-                    if (test_timer >= 5600) begin
-                        test_state <= T_IDLE;
+                T_STOP: begin
+                    ir_test_signal <= 1'b0; // final 560us mark
+                    if (test_timer >= 20'd5600) begin
+                        test_state     <= T_IDLE;
                         ir_test_signal <= 1'b1;
-                    end else test_timer <= test_timer + 1;
+                    end else test_timer <= test_timer + 1'b1;
                 end
+                default: test_state <= T_IDLE;
             endcase
         end
     end
 
-    // Combine external IR and test generator (OR since idle is HIGH)
-    assign ir_in = ir_in_PAD & ir_test_signal;
+    // In no-sensor debug mode, drive decoder directly from internal generator.
+    assign ir_in = ir_test_signal;
 `else
     assign ir_in = ir_in_PAD;
 `endif
@@ -191,16 +209,6 @@ module ir_decoder_top (
     logic [7:0]  uart_data;
     logic        uart_tx_req;
     logic        uart_ready;
-    logic        btn_ff1, btn_ff2, btn_prev;
-    logic        btn_pulse;
-
-    // Synchronize BTN1 into clk domain and create one-cycle trigger pulse.
-    always_ff @(posedge clk) begin
-        btn_ff1  <= btn_test_PAD;
-        btn_ff2  <= btn_ff1;
-        btn_prev <= btn_ff2;
-    end
-    assign btn_pulse = btn_ff2 & ~btn_prev;
 
     // ========================================================
     // Module Instantiations
@@ -245,15 +253,13 @@ module ir_decoder_top (
     );
 
     // --- Output Formatter ---
-    // --- Output Formatter ---
-    // DEBUG MODE: Triggered by Button 1, Fixed Data
     output_formatter u_output_formatter (
         .clk          (clk),
         .rst_n        (rst_n),
-        .address      (8'hAA),
-        .command      (8'hBB),
-        .valid_in     (btn_pulse), // one-shot trigger
-        .decode_error (1'b0),
+        .address      (address),
+        .command      (command),
+        .valid_in     (data_valid),
+        .decode_error (decode_error),
         .uart_ready   (uart_ready),
         .uart_data    (uart_data),
         .uart_tx_req  (uart_tx_req)
@@ -277,8 +283,6 @@ module ir_decoder_top (
     // ========================================================
     assign led_valid = data_valid;
     assign led_error = decode_error;
-    // assign led_valid_PAD = hb_cnt_100[24]; // Blink LED 4 (Removed for UART Ready mapping)
-    // assign led_error_PAD = led_error; // DISABLED: Mapped to UART TX for debug
 
     // Heartbeat 1 (100MHz domain): Blinks LED 7 every ~0.67s (2^26 cycles)
     // PROOF OF LIFE: If this blinks, FPGA is programmed and clk_PAD works.
@@ -286,34 +290,11 @@ module ir_decoder_top (
     always_ff @(posedge clk_PAD) begin
         hb_cnt_100 <= hb_cnt_100 + 1;
     end
-    // Old LED assignments removed to prevent multi-driver errors.
-    // assign led_heartbeat_PAD = hb_cnt_100[26];
-    // assign led_active_PAD = receiving ? 1'b1 : hb_cnt_10[23];
-
-    // Heartbeat 2 (10MHz domain): Blinks LED 6 (Active) when idle
-    // PROOF OF DIVIDER: If this blinks, clock divider works.
-    logic [23:0] hb_cnt_10;
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) hb_cnt_10 <= 0;
-        else hb_cnt_10 <= hb_cnt_10 + 1;
-    end
-    
-    // DEEP DIAGNOSTIC MAPPINGS:
-    
     // LED 7 (LD7) = 100MHz heartbeat (board alive + input clock alive).
     assign led_heartbeat_PAD = hb_cnt_100[26];
 
-    // LED 6 (LD6) = 10MHz Heartbeat (Blinking).
-    // If OFF/Solid, 10MHz Clock is dead/stuck.
-    assign led_active_PAD = hb_cnt_10[23];
-
-    // LED 5 (LD5) = FSM Trigger Attempt (uart_tx_req).
-    // If this flashes when you press BTN1, FSM is working!
-    // If this stays OFF, FSM is DEAD/IDLE.
-    assign led_error_PAD = uart_tx_req;
-
-    // LED 4 (LD4) = UART Ready (ON = Ready, OFF = Busy).
-    // Should be ON normally. Flickers OFF when sending.
-    assign led_valid_PAD = uart_ready;
+    assign led_active_PAD = receiving;
+    assign led_error_PAD  = led_error;
+    assign led_valid_PAD  = led_valid;
     
 endmodule
