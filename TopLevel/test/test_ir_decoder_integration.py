@@ -18,29 +18,21 @@ from test_helpers import (
     send_nec_ir_frame,
     send_nec_repeat,
     collect_uart_string,
-    collect_uart_byte,
-    CLK_PERIOD_NS,
 )
 
 # UART config: must match uart_tx parameter CLOCKS_PER_BIT
 CLOCKS_PER_BIT = 1042  # 10 MHz / 9600 baud
 NUM_OUTPUT_BYTES = 10   # "A:xx C:yy\n"
+UART_COLLECT_TIMEOUT_NS = 150_000_000
 
 
 # ============================================================
 # Setup Helpers
 # ============================================================
 async def setup(dut):
-    """Start clock, reset DUT, set IR idle HIGH.
-    
-    NOTE: We drive clk_10mhz directly (internal signal) to speed up simulation.
-    Clock period = 100ns (10 MHz).
-    """
-    # Force initial value for clk_10mhz to avoid X
-    dut.clk_10mhz.value = 0
-    
-    # Drive internal clock directly
-    clock = Clock(dut.clk_10mhz, CLK_PERIOD_NS, unit="ns")
+    """Start 10 MHz simulation clock on clk_PAD, apply active-high reset, set IR idle HIGH."""
+    dut.clk_PAD.value = 0
+    clock = Clock(dut.clk_PAD, 100, unit="ns")
     cocotb.start_soon(clock.start())
 
     # IR idle = HIGH (no signal)
@@ -49,11 +41,24 @@ async def setup(dut):
     # Initialize test button
     dut.btn_test_PAD.value = 0
 
-    # Reset
+    # Start deasserted, then assert/reset, then release.
+    # This guarantees a clean 1->0 transition on internal rst_n.
     dut.rst_n_PAD.value = 0
-    await ClockCycles(dut.clk_10mhz, 10)
+    await ClockCycles(dut.clk_10mhz, 2)
+
+    # Reset is active-high on top-level (BTN0 style)
     dut.rst_n_PAD.value = 1
-    await ClockCycles(dut.clk_10mhz, 5)
+    await ClockCycles(dut.clk_10mhz, 20)
+    dut.rst_n_PAD.value = 0
+    await ClockCycles(dut.clk_10mhz, 4)
+
+
+async def wait_task_or_timeout(task, timeout_ns, message):
+    """Wait for cocotb task completion with timeout."""
+    timeout = Timer(timeout_ns, unit="ns")
+    completed = await First(task, timeout)
+    assert completed is not timeout, message
+    return await task
 
 
 # ============================================================
@@ -64,6 +69,7 @@ async def setup(dut):
 async def test_reset(dut):
     """All outputs should be in safe state after reset."""
     await setup(dut)
+    await ClockCycles(dut.clk_10mhz, 8)
 
     assert int(dut.uart_tx_PAD.value) == 1, "UART TX should idle HIGH"
     assert int(dut.led_valid_PAD.value) == 0, "led_valid should be 0"
@@ -115,7 +121,11 @@ async def test_full_nec_to_uart(dut):
     await Timer(15_000_000, unit="ns")  # 15ms margin
 
     # Wait for collector to finish
-    await collector
+    await wait_task_or_timeout(
+        collector,
+        UART_COLLECT_TIMEOUT_NS,
+        "Timeout while waiting for UART output in test_full_nec_to_uart",
+    )
 
     expected = "A:00 C:45\n"
     assert uart_result["text"] == expected, \
@@ -136,7 +146,11 @@ async def test_full_nec_to_uart_nonzero_addr(dut):
 
     await send_nec_ir_frame(dut, address=0xAB, command=0xCD)
     await Timer(15_000_000, unit="ns")
-    await collector
+    await wait_task_or_timeout(
+        collector,
+        UART_COLLECT_TIMEOUT_NS,
+        "Timeout while waiting for UART output in test_full_nec_to_uart_nonzero_addr",
+    )
 
     expected = "A:AB C:CD\n"
     assert uart_result["text"] == expected, \
@@ -157,7 +171,11 @@ async def test_two_consecutive_frames(dut):
     c1 = cocotb.start_soon(collector1())
     await send_nec_ir_frame(dut, address=0x00, command=0x45)
     await Timer(15_000_000, unit="ns")
-    await c1
+    await wait_task_or_timeout(
+        c1,
+        UART_COLLECT_TIMEOUT_NS,
+        "Timeout while waiting for first UART frame in test_two_consecutive_frames",
+    )
 
     assert uart1["text"] == "A:00 C:45\n", f"First frame: got '{uart1['text']!r}'"
 
@@ -173,7 +191,11 @@ async def test_two_consecutive_frames(dut):
     c2 = cocotb.start_soon(collector2())
     await send_nec_ir_frame(dut, address=0x04, command=0x08)
     await Timer(15_000_000, unit="ns")
-    await c2
+    await wait_task_or_timeout(
+        c2,
+        UART_COLLECT_TIMEOUT_NS,
+        "Timeout while waiting for second UART frame in test_two_consecutive_frames",
+    )
 
     assert uart2["text"] == "A:04 C:08\n", f"Second frame: got '{uart2['text']!r}'"
 
@@ -192,7 +214,11 @@ async def test_repeat_code_to_uart(dut):
     c1 = cocotb.start_soon(collector1())
     await send_nec_ir_frame(dut, address=0x00, command=0x45)
     await Timer(15_000_000, unit="ns")
-    await c1
+    await wait_task_or_timeout(
+        c1,
+        UART_COLLECT_TIMEOUT_NS,
+        "Timeout while waiting for first UART frame in test_repeat_code_to_uart",
+    )
 
     assert uart1["text"] == "A:00 C:45\n", f"Original frame: got '{uart1['text']!r}'"
 
@@ -208,7 +234,11 @@ async def test_repeat_code_to_uart(dut):
     c2 = cocotb.start_soon(collector2())
     await send_nec_repeat(dut)
     await Timer(15_000_000, unit="ns")
-    await c2
+    await wait_task_or_timeout(
+        c2,
+        UART_COLLECT_TIMEOUT_NS,
+        "Timeout while waiting for repeated UART frame in test_repeat_code_to_uart",
+    )
 
     assert uart2["text"] == "A:00 C:45\n", \
         f"Repeat should produce same output, got '{uart2['text']!r}'"
@@ -224,6 +254,7 @@ def test_ir_decoder_integration_runner():
     root_path = proj_path.parent
 
     sources = [
+        proj_path / "test" / "mock_prim.sv",
         proj_path / "src" / "ir_decoder_top.sv",
         root_path / "EdgeDetector" / "src" / "edge_detector.sv",
         root_path / "PulseTimer" / "src" / "pulse_timer.sv",
@@ -236,6 +267,7 @@ def test_ir_decoder_integration_runner():
     runner.build(
         sources=sources,
         hdl_toplevel="ir_decoder_top",
+        build_args=["-DSIMULATION"],
         always=True,
     )
 
