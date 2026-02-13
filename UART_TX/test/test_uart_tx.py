@@ -5,7 +5,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 from cocotb_tools.runner import get_runner
 
-# Test timing parameters
+# Timing parameters for this testbench
 CLK_PERIOD_NS = 100
 CLOCKS_PER_BIT = 8  # small for fast simulation
 
@@ -21,7 +21,7 @@ async def _reset(dut):
 
 
 async def _send_and_sample(dut, byte):
-    """Send one byte and sample UART bits at bit centers."""
+    """Send one byte and sample UART bits at the center of each bit."""
     await RisingEdge(dut.clk)
     dut.data_in.value = byte
     dut.send_req.value = 1
@@ -40,6 +40,7 @@ async def _send_and_sample(dut, byte):
     return samples
 
 
+# Checks that UART is idle after reset and ready stays at 1.
 @cocotb.test()
 async def test_ready_and_idle(dut):
     cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
@@ -49,6 +50,7 @@ async def test_ready_and_idle(dut):
     assert int(dut.tx_out.value) == 1
 
 
+# Checks the full UART frame for a sample byte (start, data, stop).
 @cocotb.test()
 async def test_uart_transmission(dut):
     cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
@@ -60,6 +62,7 @@ async def test_uart_transmission(dut):
     assert samples == expected
 
 
+# Checks that ready is 0 during TX and returns to 1 afterwards.
 @cocotb.test()
 async def test_ready_cleared_during_tx_and_reasserted(dut):
     cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
@@ -79,6 +82,7 @@ async def test_ready_cleared_during_tx_and_reasserted(dut):
     assert int(dut.ready.value) == 1
 
 
+# Checks that a second send trigger is ignored while busy.
 @cocotb.test()
 async def test_ignore_send_while_busy(dut):
     """Second send_req during busy must not affect first frame."""
@@ -92,6 +96,7 @@ async def test_ignore_send_while_busy(dut):
     assert samples == expected
 
 
+# Checks two valid transmissions back-to-back.
 @cocotb.test()
 async def test_back_to_back_transmission(dut):
     cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
@@ -112,6 +117,7 @@ async def test_back_to_back_transmission(dut):
     assert s2 == e2
 
 
+# Checks that reset during TX cleanly returns the transmitter to idle.
 @cocotb.test()
 async def test_reset_during_tx(dut):
     cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
@@ -134,30 +140,32 @@ async def test_reset_during_tx(dut):
     assert int(dut.ready.value) == 1
 
 
+# Checks extreme data patterns 0x00 and 0xFF.
 @cocotb.test()
 async def test_all_zeros_and_all_ones(dut):
     """Test extreme data patterns 0x00 and 0xFF"""
     cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
     await _reset(dut)
 
-    # Test all zeros
+    # Send and check all zeros
     samples_00 = await _send_and_sample(dut, 0x00)
     expected_00 = [0] + [0] * 8 + [1]
     assert samples_00 == expected_00, f"Expected {expected_00}, got {samples_00}"
 
-    # Wait for ready
+    # Wait until transmitter is ready again
     while int(dut.ready.value) == 0:
         await RisingEdge(dut.clk)
 
-    # Test all ones
+    # Send and check all ones
     samples_FF = await _send_and_sample(dut, 0xFF)
     expected_FF = [0] + [1] * 8 + [1]
     assert samples_FF == expected_FF, f"Expected {expected_FF}, got {samples_FF}"
 
 
+# Checks that data_in changes during TX do not affect the active frame.
 @cocotb.test()
 async def test_data_change_during_transmission(dut):
-    """Verify that data_in changes during TX are ignored"""
+    """Verify that data_in changes during TX are ignored."""
     cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
     await _reset(dut)
 
@@ -172,9 +180,9 @@ async def test_data_change_during_transmission(dut):
     # Change data_in during transmission (should be ignored)
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
-    dut.data_in.value = 0x55  # Change to different pattern
+    dut.data_in.value = 0x55  # Switch to a different pattern
     
-    # Sample the transmission
+    # Sample the transmitted frame
     bit_period_ns = CLOCKS_PER_BIT * CLK_PERIOD_NS
     await Timer(bit_period_ns // 2, unit="ns")
     
@@ -184,14 +192,15 @@ async def test_data_change_during_transmission(dut):
             await Timer(bit_period_ns, unit="ns")
         samples.append(int(dut.tx_out.value))
     
-    # Should match original byte, not the changed value
+    # Frame must match original byte, not the updated input value
     expected = [0] + [(original_byte >> i) & 1 for i in range(8)] + [1]
     assert samples == expected, f"Data changed during TX! Expected {expected}, got {samples}"
 
 
+# Checks behavior with a multi-cycle send_req pulse.
 @cocotb.test()
 async def test_extended_send_req_pulse(dut):
-    """Verify behavior when send_req stays high for multiple cycles"""
+    """Verify behavior when send_req stays high for multiple cycles."""
     cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
     await _reset(dut)
 
@@ -205,7 +214,7 @@ async def test_extended_send_req_pulse(dut):
     await RisingEdge(dut.clk)
     dut.send_req.value = 0
     
-    # Sample the transmission
+    # Sample the transmitted frame
     bit_period_ns = CLOCKS_PER_BIT * CLK_PERIOD_NS
     await Timer(bit_period_ns // 2, unit="ns")
     
@@ -215,10 +224,11 @@ async def test_extended_send_req_pulse(dut):
             await Timer(bit_period_ns, unit="ns")
         samples.append(int(dut.tx_out.value))
     
-    # Should still produce correct frame
+    # Transmission must still produce the correct frame
     expected = [0] + [(byte >> i) & 1 for i in range(8)] + [1]
     assert samples == expected, f"Extended send_req pulse affected transmission! Expected {expected}, got {samples}"
 
+# Runs all UART_TX tests via the Cocotb runner.
 def test_uart_tx_runner():
     """Simulate the uart_tx using the Python runner."""
     sim = os.getenv("SIM", "icarus")
