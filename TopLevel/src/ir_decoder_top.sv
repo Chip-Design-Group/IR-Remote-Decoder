@@ -77,6 +77,15 @@ module ir_decoder_top (
     assign rst_n = rst_n_PAD;
 `endif
 
+    // Optional raw-input debug mode: keep decoder/UART chain in reset
+    // so only input activity is observed.
+    logic rst_n_decode;
+`ifdef DEBUG_INPUT_ONLY
+    assign rst_n_decode = 1'b0;
+`else
+    assign rst_n_decode = rst_n;
+`endif
+
     // Synchronize BTN1 into clk domain and create one-cycle trigger pulse.
     logic btn_ff1, btn_ff2, btn_prev;
     logic btn_pulse;
@@ -227,7 +236,7 @@ module ir_decoder_top (
     // --- Pulse Timer ---
     pulse_timer u_pulse_timer (
         .clk          (clk),
-        .rst_n        (rst_n),
+        .rst_n        (rst_n_decode),
         .ir_in_sync   (ir_in_sync),
         .edge_rise    (edge_rise),
         .edge_fall    (edge_fall),
@@ -240,7 +249,7 @@ module ir_decoder_top (
     // --- NEC Decoder ---
     nec_decoder u_nec_decoder (
         .clk          (clk),
-        .rst_n        (rst_n),
+        .rst_n        (rst_n_decode),
         .pulse_done   (pulse_done),
         .pulse_width  (pulse_width),
         .pulse_level  (pulse_level),
@@ -255,7 +264,7 @@ module ir_decoder_top (
     // --- Output Formatter ---
     output_formatter u_output_formatter (
         .clk          (clk),
-        .rst_n        (rst_n),
+        .rst_n        (rst_n_decode),
         .address      (address),
         .command      (command),
         .valid_in     (data_valid),
@@ -270,7 +279,7 @@ module ir_decoder_top (
         .CLOCKS_PER_BIT(CLOCKS_PER_BIT)
     ) u_uart_tx (
         .clk          (clk),
-        .rst_n        (rst_n),
+        .rst_n        (rst_n_decode),
         .data_in      (uart_data),
         .send_req     (uart_tx_req),
         .tx_out       (uart_tx_out),
@@ -293,8 +302,64 @@ module ir_decoder_top (
     // LED 7 (LD7) = 100MHz heartbeat (board alive + input clock alive).
     assign led_heartbeat_PAD = hb_cnt_100[26];
 
+    // DEBUG: stretch detected IR edges so activity is visible on LED6.
+    logic [18:0] ir_activity_stretch;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            ir_activity_stretch <= 19'd0;
+        end else if (edge_rise || edge_fall) begin
+            ir_activity_stretch <= 19'd500000; // ~50ms at 10MHz
+        end else if (ir_activity_stretch != 19'd0) begin
+            ir_activity_stretch <= ir_activity_stretch - 1'b1;
+        end
+    end
+
+    // DEBUG: stretch low level on synchronized IR input so short NEC marks are visible.
+    logic [18:0] ir_low_stretch;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            ir_low_stretch <= 19'd0;
+        end else if (!ir_in_sync) begin
+            ir_low_stretch <= 19'd500000; // ~50ms at 10MHz
+        end else if (ir_low_stretch != 19'd0) begin
+            ir_low_stretch <= ir_low_stretch - 1'b1;
+        end
+    end
+
+    // Stretch decode result pulses so they are visible on LEDs in hardware.
+    logic [18:0] valid_stretch;
+    logic [18:0] error_stretch;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            valid_stretch <= 19'd0;
+            error_stretch <= 19'd0;
+        end else begin
+            if (data_valid) begin
+                valid_stretch <= 19'd500000; // ~50ms at 10MHz
+            end else if (valid_stretch != 19'd0) begin
+                valid_stretch <= valid_stretch - 1'b1;
+            end
+
+            if (decode_error) begin
+                error_stretch <= 19'd500000; // ~50ms at 10MHz
+            end else if (error_stretch != 19'd0) begin
+                error_stretch <= error_stretch - 1'b1;
+            end
+        end
+    end
+
+`ifdef DEBUG_INPUT_ONLY
+    assign led_valid_PAD  = (ir_low_stretch != 19'd0);           // low level activity (stretched)
+    assign led_error_PAD  = (ir_activity_stretch != 19'd0) | ~rst_n; // any edge activity + reset indicator
+    assign led_active_PAD = ~ir_in_sync;                          // direct pin echo (active-low IR input)
+`elsif DEBUG_IR_INPUT
+    assign led_valid_PAD  = (ir_low_stretch != 19'd0);   // raw IR low activity
+    assign led_error_PAD  = decode_error | ~rst_n;        // reset indicator on LED5
+    assign led_active_PAD = ~ir_in_sync;                  // direct pin echo (active-low IR input)
+`else
     assign led_active_PAD = receiving;
-    assign led_error_PAD  = led_error;
-    assign led_valid_PAD  = led_valid;
+    assign led_error_PAD  = (error_stretch != 19'd0) | ~rst_n; // stretched decode error + reset indicator
+    assign led_valid_PAD  = (valid_stretch != 19'd0);          // stretched data valid
+`endif
     
 endmodule

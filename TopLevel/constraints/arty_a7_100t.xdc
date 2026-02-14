@@ -15,9 +15,9 @@ set_property -dict { PACKAGE_PIN T9    IOSTANDARD LVCMOS33 } [get_ports { led_ac
 set_property -dict { PACKAGE_PIN T10   IOSTANDARD LVCMOS33 } [get_ports { led_heartbeat_PAD }]; #IO_L24N_T3_A00_D16_14 Sch=led[7]
 
 ## USB-UART Interface
-# set_property -dict { PACKAGE_PIN A9    IOSTANDARD LVCMOS33 } [get_ports { uart_rxd_out }]; #IO_L14N_T2_SRCC_16 Sch=uart_rxd_out
 set_property -dict { PACKAGE_PIN D10   IOSTANDARD LVCMOS33 } [get_ports { uart_tx_PAD }]; #IO_L19N_T3_VREF_16 Sch=uart_txd_in
 
 ## Pmod Header JA
 ## IR Receiver connected to JA1 (Top row, left-most pin)
 set_property -dict { PACKAGE_PIN G13   IOSTANDARD LVCMOS33 } [get_ports { ir_in_PAD }]; #IO_0_15 Sch=ja[1]
+set_property PULLUP true [get_ports { ir_in_PAD }];
