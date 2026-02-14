@@ -74,6 +74,7 @@ module nec_decoder (
         SPACE,      // Space detected, waiting for first bit burst
         DATA,       // Receiving 32 data bits
         VALIDATE,   // Checking checksum
+        REPEAT_WAIT,// Repeat space detected, waiting for final burst
         REPEAT      // Repeat code detected
     } state_t;
 
@@ -146,7 +147,7 @@ module nec_decoder (
                     if (pulse_level == 1'b1 && is_agc_space)
                         next_state = SPACE;
                     else if (pulse_level == 1'b1 && is_repeat_space)
-                        next_state = REPEAT;
+                        next_state = REPEAT_WAIT;
                     else
                         next_state = IDLE; // Invalid pulse → reset
                 end
@@ -189,6 +190,18 @@ module nec_decoder (
 
             VALIDATE: begin
                 next_state = IDLE; // Always return to IDLE
+            end
+
+            REPEAT_WAIT: begin
+                if (timeout)
+                    next_state = IDLE;
+                else if (pulse_done) begin
+                    // A valid NEC repeat must end with a 560us LOW burst.
+                    if (pulse_level == 1'b0 && is_bit_burst)
+                        next_state = REPEAT;
+                    else
+                        next_state = IDLE;
+                end
             end
 
             REPEAT: begin
@@ -249,7 +262,7 @@ module nec_decoder (
                         has_valid_frame <= 1'b1;
                 end
 
-                default: ; // LEADER, REPEAT: no action needed
+                default: ; // LEADER, REPEAT_WAIT, REPEAT: no action needed
             endcase
         end
     end
