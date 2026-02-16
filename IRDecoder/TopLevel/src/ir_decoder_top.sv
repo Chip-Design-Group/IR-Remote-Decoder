@@ -19,8 +19,10 @@ module ir_decoder_top (
     input  logic rst_n_PAD,
     input  logic ir_in_PAD,
     input  logic btn_test_PAD,
+    input  logic btn_send_PAD,
 
     output logic uart_tx_PAD,
+    output logic ir_tx_demo_PAD,
     output logic led_valid_PAD,
     output logic led_error_PAD,
     output logic led_active_PAD,
@@ -86,22 +88,30 @@ module ir_decoder_top (
     assign rst_n_decode = rst_n;
 `endif
 
-    // Synchronize BTN1 into clk domain and create one-cycle trigger pulse.
-    logic btn_ff1, btn_ff2, btn_prev;
-    logic btn_pulse;
+    // Synchronize BTN1/BTN3 into clk domain and create one-cycle trigger pulse.
+    logic btn_test_ff1, btn_test_ff2, btn_test_prev;
+    logic btn_send_ff1, btn_send_ff2, btn_send_prev;
+    logic btn_test_pulse, btn_send_pulse;
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            btn_ff1  <= 1'b0;
-            btn_ff2  <= 1'b0;
-            btn_prev <= 1'b0;
+            btn_test_ff1  <= 1'b0;
+            btn_test_ff2  <= 1'b0;
+            btn_test_prev <= 1'b0;
+            btn_send_ff1  <= 1'b0;
+            btn_send_ff2  <= 1'b0;
+            btn_send_prev <= 1'b0;
         end else begin
-            btn_ff1  <= btn_test_PAD;
-            btn_ff2  <= btn_ff1;
-            btn_prev <= btn_ff2;
+            btn_test_ff1  <= btn_test_PAD;
+            btn_test_ff2  <= btn_test_ff1;
+            btn_test_prev <= btn_test_ff2;
+            btn_send_ff1  <= btn_send_PAD;
+            btn_send_ff2  <= btn_send_ff1;
+            btn_send_prev <= btn_send_ff2;
         end
     end
     // Trigger only on rising edge: one frame per button press.
-    assign btn_pulse = btn_ff2 & ~btn_prev;
+    assign btn_test_pulse = btn_test_ff2 & ~btn_test_prev;
+    assign btn_send_pulse = btn_send_ff2 & ~btn_send_prev;
 
     // ========================================================
     // Internal NEC Test Pattern Generator (optional)
@@ -126,7 +136,7 @@ module ir_decoder_top (
             case (test_state)
                 T_IDLE: begin
                     ir_test_signal <= 1'b1;
-                    if (btn_pulse) begin
+                    if (btn_test_pulse) begin
                         test_state <= T_LEADER_LOW;
                         test_timer <= 20'd0;
                     end
@@ -182,6 +192,144 @@ module ir_decoder_top (
 `else
     assign ir_in = ir_in_PAD;
 `endif
+
+    // ========================================================
+    // Demo IR Sender on JA2 (BTN3 trigger)
+    // Sends one NEC frame (Addr=0x00, Cmd=0x45) per button press.
+    // ========================================================
+    localparam logic [31:0] DEMO_FRAME = 32'hBA45FF00; // [~cmd][cmd][~addr][addr], LSB-first output
+    localparam int CARRIER_HALF_TICKS = 132;           // ~37.9kHz at 10MHz
+    localparam int LEADER_MARK_TICKS  = 90000;         // 9.0ms
+    localparam int LEADER_SPACE_TICKS = 45000;         // 4.5ms
+    localparam int BIT_MARK_TICKS     = 5600;          // 560us
+    localparam int BIT0_SPACE_TICKS   = 5600;          // 560us
+    localparam int BIT1_SPACE_TICKS   = 16900;         // 1690us
+    localparam int STOP_MARK_TICKS    = 5600;          // 560us
+
+    typedef enum logic [2:0] {
+        TX_IDLE,
+        TX_LEADER_MARK,
+        TX_LEADER_SPACE,
+        TX_BIT_MARK,
+        TX_BIT_SPACE,
+        TX_STOP_MARK
+    } tx_state_t;
+
+    tx_state_t tx_state;
+    logic [17:0] tx_ticks;
+    logic [5:0]  tx_bit_idx;
+    logic [7:0]  carrier_cnt;
+    logic        carrier_clk;
+    logic        tx_mark_active;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            carrier_cnt <= 8'd0;
+            carrier_clk <= 1'b0;
+        end else if (tx_mark_active) begin
+            if (carrier_cnt == (CARRIER_HALF_TICKS-1)) begin
+                carrier_cnt <= 8'd0;
+                carrier_clk <= ~carrier_clk;
+            end else begin
+                carrier_cnt <= carrier_cnt + 1'b1;
+            end
+        end else begin
+            carrier_cnt <= 8'd0;
+            carrier_clk <= 1'b0;
+        end
+    end
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            tx_state       <= TX_IDLE;
+            tx_ticks       <= 18'd0;
+            tx_bit_idx     <= 6'd0;
+            tx_mark_active <= 1'b0;
+        end else begin
+            case (tx_state)
+                TX_IDLE: begin
+                    tx_mark_active <= 1'b0;
+                    tx_ticks       <= 18'd0;
+                    tx_bit_idx     <= 6'd0;
+                    if (btn_send_pulse) begin
+                        tx_state       <= TX_LEADER_MARK;
+                        tx_mark_active <= 1'b1;
+                    end
+                end
+
+                TX_LEADER_MARK: begin
+                    tx_mark_active <= 1'b1;
+                    if (tx_ticks >= (LEADER_MARK_TICKS-1)) begin
+                        tx_ticks       <= 18'd0;
+                        tx_state       <= TX_LEADER_SPACE;
+                        tx_mark_active <= 1'b0;
+                    end else begin
+                        tx_ticks <= tx_ticks + 1'b1;
+                    end
+                end
+
+                TX_LEADER_SPACE: begin
+                    tx_mark_active <= 1'b0;
+                    if (tx_ticks >= (LEADER_SPACE_TICKS-1)) begin
+                        tx_ticks       <= 18'd0;
+                        tx_state       <= TX_BIT_MARK;
+                        tx_mark_active <= 1'b1;
+                    end else begin
+                        tx_ticks <= tx_ticks + 1'b1;
+                    end
+                end
+
+                TX_BIT_MARK: begin
+                    tx_mark_active <= 1'b1;
+                    if (tx_ticks >= (BIT_MARK_TICKS-1)) begin
+                        tx_ticks       <= 18'd0;
+                        tx_state       <= TX_BIT_SPACE;
+                        tx_mark_active <= 1'b0;
+                    end else begin
+                        tx_ticks <= tx_ticks + 1'b1;
+                    end
+                end
+
+                TX_BIT_SPACE: begin
+                    tx_mark_active <= 1'b0;
+                    if ((DEMO_FRAME[tx_bit_idx] && (tx_ticks >= (BIT1_SPACE_TICKS-1))) ||
+                        (!DEMO_FRAME[tx_bit_idx] && (tx_ticks >= (BIT0_SPACE_TICKS-1)))) begin
+                        tx_ticks <= 18'd0;
+                        if (tx_bit_idx == 6'd31) begin
+                            tx_state       <= TX_STOP_MARK;
+                            tx_mark_active <= 1'b1;
+                        end else begin
+                            tx_bit_idx     <= tx_bit_idx + 1'b1;
+                            tx_state       <= TX_BIT_MARK;
+                            tx_mark_active <= 1'b1;
+                        end
+                    end else begin
+                        tx_ticks <= tx_ticks + 1'b1;
+                    end
+                end
+
+                TX_STOP_MARK: begin
+                    tx_mark_active <= 1'b1;
+                    if (tx_ticks >= (STOP_MARK_TICKS-1)) begin
+                        tx_state       <= TX_IDLE;
+                        tx_ticks       <= 18'd0;
+                        tx_mark_active <= 1'b0;
+                    end else begin
+                        tx_ticks <= tx_ticks + 1'b1;
+                    end
+                end
+
+                default: begin
+                    tx_state       <= TX_IDLE;
+                    tx_ticks       <= 18'd0;
+                    tx_bit_idx     <= 6'd0;
+                    tx_mark_active <= 1'b0;
+                end
+            endcase
+        end
+    end
+
+    assign ir_tx_demo_PAD = tx_mark_active ? carrier_clk : 1'b0;
 
     assign uart_tx_PAD   = uart_tx_out;
 
