@@ -10,6 +10,7 @@ __pycache__/
 
 # CocoTB simulation
 sim_build/
+results.xml
 
 # Vivado
 vivado_project/
