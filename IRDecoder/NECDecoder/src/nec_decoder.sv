@@ -8,11 +8,11 @@
 // measurements from ir_pulse_timer.
 //
 // NEC Frame:   AGC(9ms) + Space(4.5ms) + 32 Data Bits + Stop
-// Repeat Code: AGC(9ms) + Space(2.25ms) + Stop
+// Repeat:      AGC(9ms) + Space(2.25ms) + Burst(560us)
 // Data bits: Address(8) + ~Address(8) + Command(8) + ~Command(8)
 // Bit encoding: burst(560µs) + space(560µs=0, 1690µs=1)
 //
-// FSM States: IDLE → LEADER → SPACE/REPEAT → DATA → VALIDATE → IDLE
+// FSM States: IDLE → LEADER → SPACE/DATA/REPEAT_WAIT_STOP → VALIDATE/REPEAT_EMIT → IDLE
 //
 // pulse_width unit: 1 count = 1 clock cycle @ 10 MHz (100ns)
 // ============================================================
@@ -49,7 +49,7 @@ module nec_decoder (
     localparam SPACE_MIN = 18'd36000; // 3.6 ms
     localparam SPACE_MAX = 18'd54000; // 5.4 ms
 
-    // Repeat Space: 2.25ms = 22500 cycles
+    // Repeat Space: 2.25ms = 22500 cycles (±20%, like other NEC windows)
     localparam REPEAT_MIN = 18'd18000; // 1.8 ms
     localparam REPEAT_MAX = 18'd27000; // 2.7 ms
 
@@ -74,8 +74,8 @@ module nec_decoder (
         SPACE,      // Space detected, waiting for first bit burst
         DATA,       // Receiving 32 data bits
         VALIDATE,   // Checking checksum
-        REPEAT_WAIT,// Repeat space detected, waiting for final burst
-        REPEAT      // Repeat code detected
+        REPEAT_WAIT_STOP, // Repeat space seen, waiting for final 560us burst
+        REPEAT_EMIT // Re-emit last valid frame
     } state_t;
 
     state_t current_state, next_state;
@@ -86,11 +86,17 @@ module nec_decoder (
     logic [31:0] shift_reg;       // 32-bit shift register
     logic [5:0]  bit_counter;     // Counts received bits (0-31)
     logic        wait_for_space;  // 1=waiting for space, 0=waiting for burst
-    logic        has_valid_frame; // 1=at least one valid frame was decoded
+    logic        has_valid_frame; // At least one full valid frame was decoded
+    logic [21:0] since_valid_cnt; // Cycles since last full/accepted frame
 
     // Checksum validation
     logic [7:0] addr, addr_inv, cmd, cmd_inv;
     logic       checksum_ok;
+    logic       repeat_armed;
+
+    // Arduino-IRremote style: repeat is primarily gap-based.
+    // NEC repeat period is ~110ms, so keep a short acceptance window.
+    localparam logic [21:0] REPEAT_WINDOW_MAX = 22'd1_200_000; // 120ms @10MHz
 
     // Pulse classification
     logic is_agc_burst, is_agc_space, is_repeat_space, is_bit_burst;
@@ -117,6 +123,7 @@ module nec_decoder (
     assign cmd_inv  = shift_reg[31:24];
     assign checksum_ok = ((addr ^ addr_inv) == 8'hFF) &&
                          ((cmd  ^ cmd_inv)  == 8'hFF);
+    assign repeat_armed = has_valid_frame && (since_valid_cnt < REPEAT_WINDOW_MAX);
 
     // ========================================================
     // FSM: State Register (sequential)
@@ -146,8 +153,8 @@ module nec_decoder (
                 else if (pulse_done) begin
                     if (pulse_level == 1'b1 && is_agc_space)
                         next_state = SPACE;
-                    else if (pulse_level == 1'b1 && is_repeat_space)
-                        next_state = REPEAT_WAIT;
+                    else if (pulse_level == 1'b1 && is_repeat_space && repeat_armed)
+                        next_state = REPEAT_WAIT_STOP;
                     else
                         next_state = IDLE; // Invalid pulse → reset
                 end
@@ -192,20 +199,19 @@ module nec_decoder (
                 next_state = IDLE; // Always return to IDLE
             end
 
-            REPEAT_WAIT: begin
+            REPEAT_WAIT_STOP: begin
                 if (timeout)
                     next_state = IDLE;
                 else if (pulse_done) begin
-                    // A valid NEC repeat must end with a 560us LOW burst.
                     if (pulse_level == 1'b0 && is_bit_burst)
-                        next_state = REPEAT;
+                        next_state = REPEAT_EMIT;
                     else
                         next_state = IDLE;
                 end
             end
 
-            REPEAT: begin
-                next_state = IDLE; // Always return to IDLE
+            REPEAT_EMIT: begin
+                next_state = IDLE;
             end
 
             default: next_state = IDLE;
@@ -221,7 +227,11 @@ module nec_decoder (
             bit_counter     <= 6'd0;
             wait_for_space  <= 1'b0;
             has_valid_frame <= 1'b0;
+            since_valid_cnt <= REPEAT_WINDOW_MAX;
         end else begin
+            if (has_valid_frame && since_valid_cnt < REPEAT_WINDOW_MAX)
+                since_valid_cnt <= since_valid_cnt + 1'b1;
+
             case (current_state)
                 IDLE: begin
                     shift_reg      <= 32'h0;
@@ -257,12 +267,17 @@ module nec_decoder (
                 end
 
                 VALIDATE: begin
-                    // Mark that a valid frame has been decoded
-                    if (checksum_ok)
+                    if (checksum_ok) begin
                         has_valid_frame <= 1'b1;
+                        since_valid_cnt <= 22'd0;
+                    end
                 end
 
-                default: ; // LEADER, REPEAT_WAIT, REPEAT: no action needed
+                REPEAT_EMIT: begin
+                    since_valid_cnt <= 22'd0;
+                end
+
+                default: ; // LEADER, REPEAT_WAIT_STOP: no action needed
             endcase
         end
     end
@@ -291,11 +306,10 @@ module nec_decoder (
                 end
             end
 
-            // Repeat code: re-assert data_valid with last address/command
-            if (current_state == REPEAT && has_valid_frame) begin
-                data_valid <= 1'b1;
-                // address and command are already holding the last valid values
+            if (current_state == REPEAT_EMIT && has_valid_frame) begin
+                data_valid <= 1'b1; // Re-emit last valid address/command
             end
+
         end
     end
 
@@ -304,6 +318,6 @@ module nec_decoder (
     // ========================================================
     assign receiving = (current_state != IDLE) &&
                        (current_state != VALIDATE) &&
-                       (current_state != REPEAT);
+                       (current_state != REPEAT_EMIT);
 
 endmodule

@@ -52,7 +52,20 @@ module output_formatter (
     endfunction
 
     // Frame byte array for UART output
+    logic [7:0] frame_bytes [0:9]; // 10 bytes: "A:xx C:yy\n"
 
+    always_comb begin
+        frame_bytes[0] = "A";
+        frame_bytes[1] = ":";
+        frame_bytes[2] = hex_to_ascii(address_reg[7:4]);
+        frame_bytes[3] = hex_to_ascii(address_reg[3:0]);
+        frame_bytes[4] = " ";
+        frame_bytes[5] = "C";
+        frame_bytes[6] = ":";
+        frame_bytes[7] = hex_to_ascii(command_reg[7:4]);
+        frame_bytes[8] = hex_to_ascii(command_reg[3:0]);
+        frame_bytes[9] = 8'h0A; // newline character
+    end
 
     // Byte index for UART transmission
     logic [3:0] byte_idx;
@@ -62,7 +75,7 @@ module output_formatter (
     // ==============================
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state    <= IDLE;
+            state <= IDLE;
         end else begin
             state <= next_state;
         end
@@ -107,32 +120,20 @@ module output_formatter (
             byte_idx <= 0;
     end
 
-    // Combinational byte selection so UART samples the intended byte
-    // in the same cycle as uart_tx_req.
-    always_comb begin
-        case (byte_idx)
-            0: uart_data = "A";
-            1: uart_data = ":";
-            2: uart_data = hex_to_ascii(address_reg[7:4]);
-            3: uart_data = hex_to_ascii(address_reg[3:0]);
-            4: uart_data = " ";
-            5: uart_data = "C";
-            6: uart_data = ":";
-            7: uart_data = hex_to_ascii(command_reg[7:4]);
-            8: uart_data = hex_to_ascii(command_reg[3:0]);
-            9: uart_data = 8'h0A; // newline
-            default: uart_data = "?";
-        endcase
-    end
-
     // ==============================
-    // UART request pulse
+    // UART output
     // ==============================
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            uart_tx_req <= 1'b0;
+            uart_data   <= 8'h00;;
+            uart_tx_req <= 0;
         end else begin
-            uart_tx_req <= (state == SEND && uart_ready);
+            uart_tx_req <= 0; // default
+
+            if (state == SEND && uart_ready) begin
+                uart_data   <= frame_bytes[byte_idx];
+                uart_tx_req <= 1; // Signal to send byte
+            end
         end
     end
     

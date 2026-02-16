@@ -33,4 +33,4 @@ jobs:
         env:
           SIM: icarus
         run: |
-          python TopLevel/test/test_ir_decoder_integration.py
+          python IRDecoder/TopLevel/test/test_ir_decoder_integration.py
