@@ -21,3 +21,4 @@ set_property -dict { PACKAGE_PIN D10   IOSTANDARD LVCMOS33 } [get_ports { uart_t
 ## Pmod Header JA
 ## IR Receiver connected to JA1 (Top row, left-most pin)
 set_property -dict { PACKAGE_PIN G13   IOSTANDARD LVCMOS33 } [get_ports { ir_in_PAD }]; #IO_0_15 Sch=ja[1]
+set_property PULLUP true [get_ports { ir_in_PAD }];

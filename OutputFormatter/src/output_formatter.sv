@@ -75,8 +75,7 @@ module output_formatter (
     // ==============================
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state    <= IDLE;
-            byte_idx <= 0;
+            state <= IDLE;
         end else begin
             state <= next_state;
         end
