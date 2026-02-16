@@ -68,4 +68,5 @@ sequenceDiagram
 ```
 
 Hinweis:
-- Die genaue Pulsbreite von `done/error` und die Timeout-Definition haengen von eurer finalen FSM-Implementierung ab.
+- Aktuelle Implementierung: `done` und `error` sind 1-Takt-Pulse.
+- Aktuelle Timeout-Definition: `WAIT_TIMEOUT_CYCLES = 256` (Parameter in `ir_recorder.sv`).

@@ -61,13 +61,13 @@ sequenceDiagram
 
     Note over REC,BRAM: Takt N+1 (posedge clk)
     REC->>BRAM: rd_en=1, rd_addr
-    Note right of BRAM: Read wird gestartet
+    Note right of BRAM: Read und Ausgabe erfolgen im selben Takt
 
-    Note over REC,BRAM: Takt N+2 (posedge clk)
+    Note over REC,BRAM: Takt N+1 (nach Taktflanke)
     BRAM-->>REC: rd_data gueltig
     BRAM-->>REC: rd_valid=1 (1 Takt)
 
-    Note over REC,BRAM: Takt N+3
+    Note over REC,BRAM: Takt N+2
     BRAM-->>REC: rd_valid=0
 ```
 
