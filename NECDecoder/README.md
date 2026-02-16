@@ -43,11 +43,11 @@ Normal Frame:
               Space     (Burst+Space)
 
 Repeat Code (Taste gehalten):
-┌──────────┐       ┌──┐
-│ AGC Burst│       │  │
-│  9 ms    │       │  │
-└──────────┘───────┘  └──
-            2.25 ms  Stop
+┌──────────┐       ┌──────┐
+│ AGC Burst│       │ 560µs│
+│  9 ms    │       │Burst │
+└──────────┘───────┘      └──
+            2.25 ms
              Space
 ```
 
@@ -79,6 +79,15 @@ Checksum: Address XOR ~Address == 0xFF
 
 ![FSM Diagram](doc/fsm.svg)
 
+Aktuelle Zustände im RTL:
+- `IDLE`
+- `LEADER`
+- `SPACE`
+- `DATA`
+- `VALIDATE`
+- `REPEAT_WAIT_STOP` (Repeat-Space erkannt, warte auf finalen 560µs Burst)
+- `REPEAT_EMIT` (erneute Ausgabe des letzten gültigen Frames)
+
 ## Timing-Konstanten
 
 Alle Werte in **Clock-Zyklen @ 10 MHz** mit ±20% Toleranz:
@@ -91,6 +100,11 @@ Alle Werte in **Clock-Zyklen @ 10 MHz** mit ±20% Toleranz:
 | Bit Burst | 560 µs | 5.600 | 4.480 | 6.720 |
 | Bit 0 Space | 560 µs | 5.600 | 4.480 | 6.720 |
 | Bit 1 Space | 1.69 ms | 16.900 | 13.520 | 20.280 |
+
+Zusätzliche Repeat-Gating-Regel:
+- Repeat wird nur akzeptiert, wenn zuvor mindestens ein gültiges Vollframe dekodiert wurde.
+- Repeat-Fenster: `REPEAT_WINDOW_MAX = 120 ms` (1.200.000 Takte @ 10 MHz).
+- Verhalten ist bewusst an Arduino-typische, gap-basierte Repeat-Semantik angelehnt.
 
 ## Tests
 
@@ -119,8 +133,7 @@ cd NECDecoder && make test
 ```
 NECDecoder/
 ├── src/
-│   ├── nec_decoder.sv      # Decoder-Modul
-│   └── bit_decoder.sv      # (nicht verwendet, in nec_decoder integriert)
+│   └── nec_decoder.sv      # Decoder-Modul (inkl. Repeat-Handling)
 ├── test/
 │   └── test_nec_decoder.py  # CocoTB Testbench
 └── Makefile
