@@ -120,7 +120,32 @@ Checksum: Address XOR ~Address == 0xFF
 
 ## FSM (Finite State Machine)
 
-![FSM Diagram](doc/fsm.svg)
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+
+    IDLE --> LEADER: AGC Burst (9ms LOW)
+
+    LEADER --> SPACE: AGC Space (4.5ms HIGH)
+    LEADER --> REPEAT_WAIT_STOP: Repeat Space (2.25ms HIGH) && repeat_armed
+    LEADER --> IDLE: invalid / timeout
+
+    SPACE --> DATA: First Bit Burst (560us LOW)
+    SPACE --> IDLE: invalid / timeout
+
+    DATA --> DATA: Next bit (burst/space pair)
+    DATA --> VALIDATE: 32 bits received
+    DATA --> IDLE: invalid / timeout
+
+    VALIDATE --> IDLE: checksum ok -> data_valid / else decode_error
+
+    REPEAT_WAIT_STOP --> REPEAT_EMIT: final 560us burst
+    REPEAT_WAIT_STOP --> IDLE: invalid / timeout
+
+    REPEAT_EMIT --> IDLE: re-emit last valid frame (data_valid)
+```
+
+Fallback (falls Mermaid im Viewer deaktiviert ist): `doc/fsm.svg`
 
 Aktuelle Zustände im RTL:
 - `IDLE`
