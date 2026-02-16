@@ -49,7 +49,7 @@ NECDecoder
 ↓
 IR_Recorder ──► BRAM (IR_Storage)
 ↓
-Buttons ──► Replay_FSM ──► NEC_Encoder ──► IR_TX ──► IR_LED
+Buttons ──► Replay_FSM ──► NEC_Encoder ──► IR_TX ──► NPN-Transistor ──► IR_LED
 ```
 
 ### Module im Detail
@@ -60,7 +60,7 @@ Buttons ──► Replay_FSM ──► NEC_Encoder ──► IR_TX ──► IR_
 | `ir_bram` | FPGA-interner Block RAM zur Speicherung der IR-Codes |
 | `Replay_FSM` | Steuert das Abspielen gespeicherter Codes |
 | `NEC_Encoder` | Erzeugt das NEC-Protokoll (Leader, Bits, Stop) |
-| `IR_TX` | 38-kHz-Trägererzeugung und Modulation für die IR-LED |
+| `IR_TX` | 38-kHz-Trägererzeugung und Modulation für die IR-LED über NPN-Treiberstufe |
 
 ---
 
@@ -80,16 +80,15 @@ Der BRAM wird per Inferenz vom Synthesizer erzeugt
 
 ---
 
-## Bedienkonzept (Beispiel)
+## Bedienkonzept (MVP: 2 Buttons)
 
 | Eingabe | Funktion |
 |---|---|
-| Button 0 | IR-Code in Slot 0 speichern |
-| Button 1 | IR-Code in Slot 1 speichern |
-| Button 2 | Slot 0 abspielen |
-| Button 3 | Slot 1 abspielen |
+| REC-Button | Letzten gültigen IR-Code in Slot 0 speichern |
+| PLAY-Button | Slot 0 abspielen |
 
-Das Konzept ist leicht erweiterbar (mehr Slots, Zähler, Anzeige).
+Für den ersten Stand wird nur **ein Slot (Slot 0)** genutzt.  
+Das Konzept bleibt danach leicht erweiterbar (mehr Slots, Zähler, Anzeige).
 
 ---
 
@@ -139,9 +138,21 @@ Die Erweiterung ist bewusst so ausgelegt, dass sie in **ca. 2 Tagen** realisierb
 ## Voraussetzungen
 
 - Funktionierender NECDecoder
-- IR-Empfänger und IR-LED (38 kHz)
+- IR-Empfänger
+- IR-LED (38 kHz) mit NPN-Transistor als Treiber (z. B. BC547 oder 2N2222)
 - Taktbasis passend für µs-Timing
 - Optional: Buttons oder Schalter
+
+### Hardware-Hinweis (IR-Sendezweig)
+
+Die IR-LED sollte nicht direkt vom FPGA-Pin getrieben werden, sondern über eine NPN-Treiberstufe:
+
+- FPGA-`IR_TX` -> Basiswiderstand (z. B. 1 kOhm) -> Basis des NPN
+- Emitter des NPN -> GND
+- Kollektor des NPN -> Kathode der IR-LED
+- Anode der IR-LED -> Vorwiderstand -> VCC
+
+Damit sind höhere LED-Ströme möglich, ohne den FPGA-Ausgang zu überlasten.
 
 ---
 
