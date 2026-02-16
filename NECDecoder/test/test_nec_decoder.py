@@ -386,6 +386,24 @@ async def test_repeat_without_prior_frame(dut):
 
 
 @cocotb.test()
+async def test_repeat_missing_final_burst_is_ignored(dut):
+    """A truncated repeat (without final 560us LOW burst) must not trigger data_valid."""
+    result = await setup_test(dut)
+
+    # Seed a known last-valid frame
+    await send_nec_frame(dut, address=0x00, command=0x45)
+    assert result.data_valid, "Frame should be valid"
+
+    # Clear monitor and send only AGC + repeat space (missing trailing burst)
+    result.reset()
+    await send_pulse(dut, AGC_BURST, 0)
+    await send_pulse(dut, REPEAT_SPACE, 1)
+    await ClockCycles(dut.clk, 5)
+
+    assert not result.data_valid, "Truncated repeat must be ignored"
+
+
+@cocotb.test()
 async def test_multiple_repeats(dut):
     """Test multiple repeat codes in sequence (button held down)."""
     result = await setup_test(dut)
