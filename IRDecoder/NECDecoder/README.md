@@ -4,7 +4,50 @@ Dekodiert NEC-Infrarot-Fernbedienungssignale. Empfängt Puls-Messungen vom `ir_p
 
 ## Blockdiagramm
 
-![Blockdiagramm](doc/blockdiagram.svg)
+```mermaid
+graph LR
+    subgraph Inputs
+        direction TB
+        D[pulse_done]
+        W["pulse_width [17:0]"]
+        L[pulse_level]
+        T[timeout]
+    end
+
+    subgraph Module
+        direction TB
+        MOD((nec_decoder))
+    end
+
+    subgraph Outputs
+        direction TB
+        DV[data_valid]
+        DE[decode_error]
+        ADDR["address [7:0]"]
+        CMD["command [7:0]"]
+        REC[receiving]
+    end
+
+    D --> MOD
+    W --> MOD
+    L --> MOD
+    T --> MOD
+
+    MOD --> DV
+    MOD --> DE
+    MOD --> ADDR
+    MOD --> CMD
+    MOD --> REC
+
+    style MOD fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style Inputs fill:#f5f5f5,stroke:#9e9e9e,stroke-dasharray: 5 5
+    style Outputs fill:#f5f5f5,stroke:#9e9e9e,stroke-dasharray: 5 5
+
+    classDef signal font-family:monospace,font-size:12px;
+    class D,W,L,T,DV,DE,ADDR,CMD,REC signal;
+```
+
+Fallback (falls Mermaid im Viewer deaktiviert ist): `doc/blockdiagram.svg`
 
 ## Schnittstelle
 
@@ -43,11 +86,11 @@ Normal Frame:
               Space     (Burst+Space)
 
 Repeat Code (Taste gehalten):
-┌──────────┐       ┌──┐
-│ AGC Burst│       │  │
-│  9 ms    │       │  │
-└──────────┘───────┘  └──
-            2.25 ms  Stop
+┌──────────┐       ┌──────┐
+│ AGC Burst│       │ 560µs│
+│  9 ms    │       │Burst │
+└──────────┘───────┘      └──
+            2.25 ms
              Space
 ```
 
@@ -77,7 +120,41 @@ Checksum: Address XOR ~Address == 0xFF
 
 ## FSM (Finite State Machine)
 
-![FSM Diagram](doc/fsm.svg)
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+
+    IDLE --> LEADER: AGC Burst (9ms LOW)
+
+    LEADER --> SPACE: AGC Space (4.5ms HIGH)
+    LEADER --> REPEAT_WAIT_STOP: Repeat Space (2.25ms HIGH) && repeat_armed
+    LEADER --> IDLE: invalid / timeout
+
+    SPACE --> DATA: First Bit Burst (560us LOW)
+    SPACE --> IDLE: invalid / timeout
+
+    DATA --> DATA: Next bit (burst/space pair)
+    DATA --> VALIDATE: 32 bits received
+    DATA --> IDLE: invalid / timeout
+
+    VALIDATE --> IDLE: checksum ok -> data_valid / else decode_error
+
+    REPEAT_WAIT_STOP --> REPEAT_EMIT: final 560us burst
+    REPEAT_WAIT_STOP --> IDLE: invalid / timeout
+
+    REPEAT_EMIT --> IDLE: re-emit last valid frame (data_valid)
+```
+
+Fallback (falls Mermaid im Viewer deaktiviert ist): `doc/fsm.svg`
+
+Aktuelle Zustände im RTL:
+- `IDLE`
+- `LEADER`
+- `SPACE`
+- `DATA`
+- `VALIDATE`
+- `REPEAT_WAIT_STOP` (Repeat-Space erkannt, warte auf finalen 560µs Burst)
+- `REPEAT_EMIT` (erneute Ausgabe des letzten gültigen Frames)
 
 ## Timing-Konstanten
 
@@ -91,6 +168,11 @@ Alle Werte in **Clock-Zyklen @ 10 MHz** mit ±20% Toleranz:
 | Bit Burst | 560 µs | 5.600 | 4.480 | 6.720 |
 | Bit 0 Space | 560 µs | 5.600 | 4.480 | 6.720 |
 | Bit 1 Space | 1.69 ms | 16.900 | 13.520 | 20.280 |
+
+Zusätzliche Repeat-Gating-Regel:
+- Repeat wird nur akzeptiert, wenn zuvor mindestens ein gültiges Vollframe dekodiert wurde.
+- Repeat-Fenster: `REPEAT_WINDOW_MAX = 120 ms` (1.200.000 Takte @ 10 MHz).
+- Verhalten ist bewusst an Arduino-typische, gap-basierte Repeat-Semantik angelehnt.
 
 ## Tests
 
@@ -119,8 +201,7 @@ cd NECDecoder && make test
 ```
 NECDecoder/
 ├── src/
-│   ├── nec_decoder.sv      # Decoder-Modul
-│   └── bit_decoder.sv      # (nicht verwendet, in nec_decoder integriert)
+│   └── nec_decoder.sv      # Decoder-Modul (inkl. Repeat-Handling)
 ├── test/
 │   └── test_nec_decoder.py  # CocoTB Testbench
 └── Makefile
