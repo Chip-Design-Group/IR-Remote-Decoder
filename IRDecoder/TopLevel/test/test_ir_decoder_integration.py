@@ -40,6 +40,8 @@ async def setup(dut):
     
     # Initialize test button
     dut.btn_test_PAD.value = 0
+    # Initialize demo send button (BTN3 in hardware)
+    dut.btn_send_PAD.value = 0
 
     # Start deasserted, then assert/reset, then release.
     # This guarantees a clean 1->0 transition on internal rst_n.

@@ -7,6 +7,8 @@ set_property -dict { PACKAGE_PIN A8    IOSTANDARD LVCMOS33 } [get_ports { rst_n_
 
 ## Test Button (Btn1)
 set_property -dict { PACKAGE_PIN C9    IOSTANDARD LVCMOS33 } [get_ports { btn_test_PAD }]; #IO_L11P_T1_SRCC_16 Sch=btn[1]
+## Demo Send Button (Btn3)
+set_property -dict { PACKAGE_PIN B8    IOSTANDARD LVCMOS33 } [get_ports { btn_send_PAD }]; #IO_L12P_T1_MRCC_16 Sch=btn[3]
 
 ## LEDs
 set_property -dict { PACKAGE_PIN H5    IOSTANDARD LVCMOS33 } [get_ports { led_valid_PAD }]; #IO_L24N_T3_35 Sch=led[4]
@@ -21,3 +23,5 @@ set_property -dict { PACKAGE_PIN D10   IOSTANDARD LVCMOS33 } [get_ports { uart_t
 ## IR Receiver connected to JA1 (Top row, left-most pin)
 set_property -dict { PACKAGE_PIN G13   IOSTANDARD LVCMOS33 } [get_ports { ir_in_PAD }]; #IO_0_15 Sch=ja[1]
 set_property PULLUP true [get_ports { ir_in_PAD }];
+## IR Sender (transistor drive) connected to JA2
+set_property -dict { PACKAGE_PIN B11   IOSTANDARD LVCMOS33 } [get_ports { ir_tx_demo_PAD }]; #IO_L4P_T0_15 Sch=ja[2]
