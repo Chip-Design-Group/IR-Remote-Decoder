@@ -29,9 +29,27 @@ module ir_storage_bram #(
   output logic                  rd_valid
 );
 
-  // TODO: BRAM-Array mit ram_style="block" implementieren.
-  // TODO: Schreibe bei wr_en in wr_addr.
-  // TODO: Lese bei rd_en aus rd_addr, setze rd_valid fuer 1 Takt.
-  // TODO: Reset-Verhalten fuer rd_data/rd_valid definieren.
+  // Inferred block RAM for stored IR words.
+  (* ram_style = "block" *) ir_word_t mem [0:SLOT_COUNT-1];
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      // Do not clear BRAM content on reset; only clear read interface state.
+      rd_data  <= '0;
+      rd_valid <= 1'b0;
+    end else begin
+      // Default: no read response unless rd_en is asserted in this cycle.
+      rd_valid <= 1'b0;
+
+      if (wr_en) begin
+        mem[wr_addr] <= wr_data;
+      end
+
+      if (rd_en) begin
+        rd_data  <= mem[rd_addr];
+        rd_valid <= 1'b1;
+      end
+    end
+  end
 
 endmodule
