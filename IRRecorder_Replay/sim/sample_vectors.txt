@@ -1,0 +1,12 @@
+# sample_vectors
+# Zweck:
+#   Platzhalter fuer Replay-Testvektoren.
+# Rein:
+#   address, command, flags, slot
+# Raus:
+#   Erwartetes NEC-Verhalten (wird spaeter formalisiert)
+
+# TODO Formatvorschlag CSV:
+# slot,address,command,flags
+# 0,0x00A2,0x45,0x00
+# 1,0x00A2,0x46,0x00

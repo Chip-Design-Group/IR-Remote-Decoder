@@ -1,6 +1,0 @@
-<testsuites name="results">
-  <testsuite name="all" package="all">
-    <property name="random_seed" value="1770808342" />
-    <testcase name="test_edge_detection_basic" classname="test_edge_detector_basic" file="/workspaces/IR-Remote-Decoder/EdgeDetector/test/test_edge_detector_basic.py" lineno="10" time="0.0009407997131347656" sim_time_ns="200.0" ratio_time="212585.09883426255" />
-  </testsuite>
-</testsuites>
