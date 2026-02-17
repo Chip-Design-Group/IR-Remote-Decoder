@@ -1,0 +1,309 @@
+// DESCRIPTION: Verilator output: Waivers generated with --waiver-output
+
+`verilator_config
+
+// Below are suggested waivers. You have three options:
+//   1. Fix the reason for the linter warning in the Verilog sources
+//   2. Keep the waiver permanently if you are sure it is okay
+//   3. Keep the waiver temporarily to suppress the output
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule TIMESCALEMOD -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Types_PKG/src/ir_types_pkg.sv" -match "Timescale missing on this module as other modules have it (IEEE 1800-2023 3.14.2.3)*"
+
+// lint_off -rule IMPORTSTAR -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Recorder/src/ir_recorder.sv" -match "'import::*' in $unit scope may pollute global namespace*"
+
+// lint_off -rule IMPORTSTAR -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/STORAGE_BRAM/src/ir_storage_bram.sv" -match "'import::*' in $unit scope may pollute global namespace*"
+
+// lint_off -rule IMPORTSTAR -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/nec_encoder/src/nec_encoder.sv" -match "'import::*' in $unit scope may pollute global namespace*"
+
+// lint_off -rule IMPORTSTAR -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/TX/src/ir_tx.sv" -match "'import::*' in $unit scope may pollute global namespace*"
+
+// lint_off -rule IMPORTSTAR -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Recorder/src/ir_recorder.sv" -match "'import::*' in $unit scope may pollute global namespace*"
+
+// lint_off -rule IMPORTSTAR -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/STORAGE_BRAM/src/ir_storage_bram.sv" -match "'import::*' in $unit scope may pollute global namespace*"
+
+// lint_off -rule IMPORTSTAR -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/nec_encoder/src/nec_encoder.sv" -match "'import::*' in $unit scope may pollute global namespace*"
+
+// lint_off -rule IMPORTSTAR -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/TX/src/ir_tx.sv" -match "'import::*' in $unit scope may pollute global namespace*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRDecoder/UART_TX/src/uart_tx.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'baud_cnt' generates 12 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRDecoder/UART_TX/src/uart_tx.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'baud_cnt' generates 12 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRDecoder/UART_TX/src/uart_tx.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'baud_cnt' generates 12 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Recorder/src/ir_recorder.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'wait_cnt_q' generates 25 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/TX/src/ir_tx.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'div_cnt_q' generates 8 bits.*"
+
+// lint_off -rule WIDTHTRUNC -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/nec_encoder/src/nec_encoder.sv" -match "Bit extraction of var[31:0] requires 5 bit index, not 6 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/nec_encoder/src/nec_encoder.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'us_cnt_q' generates 14 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/nec_encoder/src/nec_encoder.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'us_cnt_q' generates 14 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/nec_encoder/src/nec_encoder.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'us_cnt_q' generates 14 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/nec_encoder/src/nec_encoder.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'us_cnt_q' generates 14 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/nec_encoder/src/nec_encoder.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'us_cnt_q' generates 14 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/nec_encoder/src/nec_encoder.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'us_cnt_q' generates 14 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/nec_encoder/src/nec_encoder.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'us_cnt_q' generates 14 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRDecoder/OutputFormatter/src/output_formatter.sv" -match "Operator ADD expects 32 or 8 bits on the RHS, but RHS's VARREF 'n' generates 4 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRDecoder/OutputFormatter/src/output_formatter.sv" -match "Operator ADD expects 32 or 8 bits on the RHS, but RHS's VARREF 'n' generates 4 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/IRDecoder/PulseTimer/src/pulse_timer.sv" -match "Operator GTE expects 32 bits on the LHS, but LHS's VARREF 'counter' generates 18 bits.*"
+
+// lint_off -rule WIDTHEXPAND -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/ir_recorder_replay_top.sv" -match "Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'tick_cnt_q' generates 4 bits.*"
+
+// lint_off -rule WIDTHTRUNC -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/ir_recorder_replay_top.sv" -match "Operator ASSIGNDLY expects 21 bits on the Assign RHS, but Assign RHS's SUB generates 32 bits.*"
+
+// lint_off -rule WIDTHTRUNC -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/ir_recorder_replay_top.sv" -match "Operator ASSIGNDLY expects 21 bits on the Assign RHS, but Assign RHS's SUB generates 32 bits.*"
+
+// lint_off -rule WIDTHTRUNC -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/ir_recorder_replay_top.sv" -match "Operator ASSIGNDLY expects 21 bits on the Assign RHS, but Assign RHS's SUB generates 32 bits.*"
+
+// lint_off -rule UNUSEDSIGNAL -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/ir_recorder_replay_top.sv" -match "Signal is not used: 'clk_10mhz'*"
+
+// lint_off -rule UNUSEDSIGNAL -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/ir_recorder_replay_top.sv" -match "Signal is not driven, nor used: 'clk_div_cnt_q'*"
+
+// lint_off -rule UNUSEDSIGNAL -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/ir_recorder_replay_top.sv" -match "Signal is not used: 'rep_done_i'*"
+
+// lint_off -rule UNUSEDSIGNAL -file "*/workspaces/IR-Remote-Decoder/TopLevel/src/ir_recorder_replay_top.sv" -match "Signal is not used: 'enc_frame_active'*"
+
+// lint_off -rule UNUSEDPARAM -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Types_PKG/src/ir_types_pkg.sv" -match "Parameter is not used: 'IR_TYPES_PKG_VERSION_MAJOR'*"
+
+// lint_off -rule UNUSEDPARAM -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Types_PKG/src/ir_types_pkg.sv" -match "Parameter is not used: 'IR_TYPES_PKG_VERSION_MINOR'*"
+
+// lint_off -rule UNUSEDPARAM -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Types_PKG/src/ir_types_pkg.sv" -match "Parameter is not used: 'IR_WORD_WIDTH'*"
+
+// lint_off -rule UNUSEDPARAM -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Types_PKG/src/ir_types_pkg.sv" -match "Parameter is not used: 'IR_SLOT_WIDTH'*"
+
+// lint_off -rule UNUSEDPARAM -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Types_PKG/src/ir_types_pkg.sv" -match "Parameter is not used: 'IR_FLAG_USER0_BIT'*"
+
+// lint_off -rule UNUSEDPARAM -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Types_PKG/src/ir_types_pkg.sv" -match "Parameter is not used: 'IR_FLAG_USER1_BIT'*"
+
+// lint_off -rule UNUSEDPARAM -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Types_PKG/src/ir_types_pkg.sv" -match "Parameter is not used: 'IR_FLAGS_DEFAULT'*"
+
+// lint_off -rule UNUSEDSIGNAL -file "*/workspaces/IR-Remote-Decoder/IRDecoder/OutputFormatter/src/output_formatter.sv" -match "Signal is not used: 'decode_error'*"
+
+// lint_off -rule UNUSEDPARAM -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Replay_FSM/src/ir_replay_fsm.sv" -match "Parameter is not used: 'SLOT_COUNT'*"
+
+// lint_off -rule UNUSEDSIGNAL -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/nec_encoder/src/nec_encoder.sv" -match "Bits of signal are not used: 'payload_q'[7:0]*"
+
+// lint_off -rule UNUSEDPARAM -file "*/workspaces/IR-Remote-Decoder/IRRecorder_Replay/Recorder/src/ir_recorder.sv" -match "Parameter is not used: 'SLOT_COUNT'*"
+
