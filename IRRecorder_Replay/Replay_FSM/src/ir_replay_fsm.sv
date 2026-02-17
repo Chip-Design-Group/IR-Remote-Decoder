@@ -24,15 +24,15 @@ module ir_replay_fsm #(
   input  logic                  rst_n,
 
   input  logic                  replay_req,
-  input  ir_types_pkg::ir_slot_t              target_slot,
+  input  logic [2:0]            target_slot,
 
   output logic                  mem_rd_en,
-  output ir_types_pkg::ir_slot_t              mem_rd_addr,
-  input  ir_types_pkg::ir_word_t              mem_rd_data,
+  output logic [2:0]            mem_rd_addr,
+  input  logic [31:0]           mem_rd_data,
   input  logic                  mem_rd_valid,
 
   output logic                  enc_start,
-  output ir_types_pkg::ir_payload_t           enc_payload,
+  output logic [31:0]           enc_payload,
   input  logic                  enc_ready,
   input  logic                  tx_ready,
 
@@ -55,9 +55,9 @@ module ir_replay_fsm #(
   logic replay_req_q;
   logic replay_req_rise;
 
-  ir_types_pkg::ir_slot_t    slot_q, slot_d;
-  ir_types_pkg::ir_word_t    word_q, word_d;
-  ir_types_pkg::ir_payload_t payload_q, payload_d;
+  logic [2:0]               slot_q, slot_d;
+  logic [31:0]              word_q, word_d;
+  logic [31:0]              payload_q, payload_d;
 
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -103,10 +103,8 @@ module ir_replay_fsm #(
       end
 
       ST_DECODE_WORD: begin
-        payload_d.address = word_q[31:16];
-        payload_d.command = word_q[15:8];
-        payload_d.flags   = word_q[7:0];
-        if (word_q[ir_types_pkg::IR_FLAG_VALID_BIT]) begin
+        payload_d = word_q;
+        if (word_q[0]) begin
           state_d = ST_WAIT_ENCODER;
         end else begin
           state_d = ST_ERROR;
