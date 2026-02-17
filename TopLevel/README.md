@@ -99,6 +99,8 @@ Payload-Stream genutzt werden:
 3. Solange kein gültiges Decode-Frame vorliegt, bleibt die Aufnahme aktiv.
 4. Bei `dec_valid=1` wird Payload in den gewählten `slot_sel` geschrieben:
 `{address[15:0], command[7:0], flags[7:0]}`.
+Beim internen Decoderpfad wird `address` als NEC-8bit-Form gespeichert:
+`{~addr, addr}`.
 5. Das Valid-Bit wird gesetzt (`flags[0]=1`), damit Replay weiß: Slot ist gültig.
 6. `rec_done` pulst 1 Takt und die Aufnahme endet (`record_hold_q=0`).
 7. Falls kein gültiges Frame rechtzeitig kommt: `rec_error` pulst.

@@ -269,7 +269,9 @@ module ir_recorder_replay_top #(
       dec_error_mux   = 1'b0;
     end else begin
       dec_valid_mux           = dec_data_valid_i;
-      dec_payload_mux[31:16]  = {8'h00, dec_addr_i};
+      // Internal decoder provides 8-bit NEC address. For replay encoding we
+      // store it in 8-bit NEC form: {addr_inv, addr}.
+      dec_payload_mux[31:16]  = {~dec_addr_i, dec_addr_i};
       dec_payload_mux[15:8]   = dec_cmd_i;
       dec_payload_mux[7:0]    = 8'h00;
       dec_error_mux           = dec_error_i;
