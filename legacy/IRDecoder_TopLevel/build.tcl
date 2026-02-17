@@ -7,11 +7,11 @@ create_project -force $project_name ./vivado_project -part $part_name
 
 # Add source files
 add_files [glob ./src/*.sv]
-add_files [glob ../EdgeDetector/src/*.sv]
-add_files [glob ../PulseTimer/src/*.sv]
-add_files [glob ../NECDecoder/src/*.sv]
-add_files [glob ../OutputFormatter/src/*.sv]
-add_files [glob ../UART_TX/src/*.sv]
+add_files [glob ../../IRDecoder/EdgeDetector/src/*.sv]
+add_files [glob ../../IRDecoder/PulseTimer/src/*.sv]
+add_files [glob ../../IRDecoder/NECDecoder/src/*.sv]
+add_files [glob ../../IRDecoder/OutputFormatter/src/*.sv]
+add_files [glob ../../IRDecoder/UART_TX/src/*.sv]
 
 # Remove the wrapper which confuses Vivado top module selection
 remove_files [get_files *edge_pulse_wrapper.sv]

@@ -24,20 +24,20 @@ package ir_types_pkg;
   parameter int IR_CMD_WIDTH  = 8;
   parameter int IR_FLAG_WIDTH = 8;
   parameter int IR_SLOT_COUNT = 8;
-  parameter int IR_SLOT_WIDTH = $clog2(IR_SLOT_COUNT);
+  parameter int IR_SLOT_WIDTH = 3;
 
   //--------------------------------------------------------------------------
   // Slot-/Frame-Datentypen
   // Vertrag fuer alle Module:
   //   IR-Wort = {address[31:16], command[15:8], flags[7:0]}
   //--------------------------------------------------------------------------
-  typedef logic [IR_WORD_WIDTH-1:0] ir_word_t;
-  typedef logic [IR_SLOT_WIDTH-1:0] ir_slot_t;
+  typedef logic [31:0] ir_word_t;
+  typedef logic [2:0]  ir_slot_t;
 
   typedef struct packed {
-    logic [IR_ADDR_WIDTH-1:0] address; // word[31:16]
-    logic [IR_CMD_WIDTH-1:0]  command; // word[15:8]
-    logic [IR_FLAG_WIDTH-1:0] flags;   // word[7:0]
+    logic [15:0] address; // word[31:16]
+    logic [7:0]  command; // word[15:8]
+    logic [7:0]  flags;   // word[7:0]
   } ir_payload_t;
 
   //--------------------------------------------------------------------------

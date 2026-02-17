@@ -8,7 +8,7 @@ PDK = ihp-sg13g2
 .PHONY: test
 test:
 	# Run all tests in the repository
-	pytest ../
+	pytest ../../
 
 
 .PHONY: clean

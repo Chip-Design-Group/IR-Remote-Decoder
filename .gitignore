@@ -2,23 +2,30 @@ librelane/
 pdk/
 venv/
 .venv/
-UART_TX/sim_build
+.idea/
+.vscode/
+*.swp
 
 # Python
 __pycache__/
 *.pyc
+*.egg-info/
 
 # CocoTB simulation
 sim_build/
 results.xml
 
-# Vivado
+# Vivado / FPGA Standard Ignores
 vivado_project/
-vivado.log
-vivado.jou
 .Xil/
 *.bit
-*.str
-*.log
+*.bin
 *.jou
-/TopLevel/vivado*
+*.log
+*.str
+*.pb
+*.dcp
+*.wdb
+*.tmp
+*.rpt
+
