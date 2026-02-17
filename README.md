@@ -1,46 +1,46 @@
 # IR Remote Decoder Project
 
-Willkommen im **IR Remote Decoder** Projekt!
+Welcome to the **IR Remote Decoder** project!
 
-Dieses Repository enthält den kompletten Quellcode für einen hardwarebasierten Infrarot-Empfänger, optimiert für FPGAs (speziell für die IHP SG13G2 Technologie, aber generisch verwendbar).
+This repository contains the complete source code for a hardware-based Infrared Receiver/Decoder and Recorder/Replay system, optimized for FPGAs (specifically strictly designed for usage with IHP SG13G2 technology, but generally usable).
 
 ## 🚀 Features
 
-- **Vollständige Hardware-Dekodierung** des NEC-Infrarot-Protokolls.
-- **Micro-UART** zur Ausgabe der Daten an einen PC.
-- **Modulares Design** mit sauber getrennten Komponenten.
-- **Umfassende Testsuite** basierend auf Python und CocoTB.
+- **Full Hardware Decoding** of the NEC Infrared Protocol.
+- **Micro-UART** for data output to a PC.
+- **Modular Design** with cleanly separated components.
+- **Comprehensive Test Suite** based on Python and CocoTB.
+- **IR Recording & Replay** capabilities.
 
-## 📂 Struktur
+## 📂 Structure
 
-Das Projekt ist modular aufgebaut. Jedes Modul befindet sich in einem eigenen Unterordner mit Quellcode, Tests und Dokumentation.
+The project is modular. Each module resides in its own subdirectory with source code, tests, and documentation.
 
-| Modul | Beschreibung |
+| Module | Description |
 | :--- | :--- |
-| [**TopLevel**](TopLevel/README.md) | Das Hauptmodul, das alle Komponenten verbindet. |
-| [**NECDecoder**](NECDecoder/README.md) | Kernlogik zur Dekodierung des NEC-Protokolls. |
-| [**EdgeDetector**](EdgeDetector/README.md) | Signalaufbereitung und Flankenerkennung. |
-| [**PulseTimer**](PulseTimer/README.md) | Präzise Zeitmessung der IR-Pulse. |
-| [**OutputFormatter**](OutputFormatter/README.md) | Konvertierung in menschenlesbaren Text. |
-| [**UART_TX**](UART_TX/README.md) | Serielle Schnittstelle zum PC. |
+| [**TopLevel**](TopLevel/README.md) | **Canonical Entry Point**. The main integration module for the board. |
+| [**IRDecoder**](IRDecoder/README.md) | Decoder modules (NEC Decoder, Edge Detector, etc.). |
+| [**IRRecorder_Replay**](IRRecorder_Replay/README.md) | Recorder and Replay modules. |
+| [**legacy**](legacy/) | Archived legacy code (e.g., old `IRDecoder/TopLevel`). |
 
-## 🛠️ Schnellstart
+## 🛠️ Quick Start
 
-### Voraussetzungen
+### Prerequisites
 - Icarus Verilog (Simulator)
 - Python 3
 - `cocotb`, `cocotb-test`, `pytest`
 
-### Tests ausführen
+### Running Tests
 
-Um sicherzustellen, dass alles funktioniert, können Sie alle Tests im Repository auf einmal ausführen:
+To ensure everything is working, you can run all tests in the repository at once:
 
 ```bash
 pytest
 ```
 
-Dies führt Hunderte von Tests über alle Module hinweg aus, von einfachen Unit-Tests bis hin zu komplexen System-Integrationstests.
+This runs hundreds of tests across all modules, from simple unit tests to complex system integration tests.
 
-## 📝 Lizenz
+## 📝 License
 
-Dieses Projekt ist Open Source. Fühlen Sie sich frei, es zu forkem, zu verbessern und Pull Requests zu senden!
+This project is Open Source. Feel free to fork it, improve it, and send Pull Requests!
+
