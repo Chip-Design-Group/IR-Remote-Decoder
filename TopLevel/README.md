@@ -25,6 +25,22 @@ Used submodules remain in their domain folders:
 - On button press (`record_req`), save last valid code to slot
 - On button press (`replay_req`), transmit stored slot again
 
+## Arty A7 Board Control (4 signals / 4 buttons)
+
+Board wrapper `TopLevel/src/ir_recorder_replay_arty_top.sv` maps one slot per button:
+
+- `BTN0` -> `slot 0`
+- `BTN1` -> `slot 1`
+- `BTN2` -> `slot 2`
+- `BTN3` -> `slot 3`
+
+Press behavior:
+
+- short press: replay selected slot
+- long press (~0.6 s): record selected slot
+
+This gives 4 independently teachable/replayable IR signals, one per button.
+
 ## Ports (Important for Usage)
 
 - Inputs:
