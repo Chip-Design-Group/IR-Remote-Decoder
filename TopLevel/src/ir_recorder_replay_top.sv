@@ -22,7 +22,8 @@
 module ir_recorder_replay_top #(
   parameter int CORE_CLK_HZ     = 10_000_000,
   parameter int RECORD_TIMEOUT_CYCLES = (3 * CORE_CLK_HZ), // ~3s at 10MHz core
-  parameter int TX_CARRIER_HZ   = 38_000
+  parameter int TX_CARRIER_HZ   = 38_000,
+  parameter bit FPGA_CLKING     = 1'b1
 ) (
   input  logic                  clk,
   input  logic                  rst_n,
@@ -111,32 +112,40 @@ module ir_recorder_replay_top #(
   logic [31:0]          hb_counter_q;
   logic [LED_CNT_W-1:0] led_ok_cnt_q, led_err_cnt_q, led_uart_cnt_q;
 
+  generate
+    if (FPGA_CLKING) begin : g_fpga_clocking
 `ifndef SIMULATION
-  // Divide by 10 by toggling every 5 cycles.
-  always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
-      clk_div_cnt_q <= '0;
-      clk_10mhz     <= 1'b0;
-    end else begin
-      if (clk_div_cnt_q == 4) begin
-        clk_div_cnt_q <= '0;
-        clk_10mhz     <= ~clk_10mhz;
-      end else begin
-        clk_div_cnt_q <= clk_div_cnt_q + 1'b1;
+      // Divide by 10 by toggling every 5 cycles.
+      always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+          clk_div_cnt_q <= '0;
+          clk_10mhz     <= 1'b0;
+        end else begin
+          if (clk_div_cnt_q == 4) begin
+            clk_div_cnt_q <= '0;
+            clk_10mhz     <= ~clk_10mhz;
+          end else begin
+            clk_div_cnt_q <= clk_div_cnt_q + 1'b1;
+          end
+        end
       end
-    end
-  end
 `else
-  // Simulation: feed core clock directly from the testbench clock.
-  assign clk_10mhz = clk;
+      // Simulation: feed core clock directly from the testbench clock.
+      assign clk_10mhz = clk;
 `endif
 
 `ifdef SIMULATION
-  assign clk_core = clk_10mhz;
+      assign clk_core = clk_10mhz;
 `else
-  // Hardware: route the derived clock via global buffer.
-  BUFG clk_core_bufg_i (.I(clk_10mhz), .O(clk_core));
+      // FPGA hardware: route the derived clock via global buffer.
+      BUFG clk_core_bufg_i (.I(clk_10mhz), .O(clk_core));
 `endif
+    end else begin : g_asic_clocking
+      // ASIC/integration mode: use incoming clock directly, no FPGA primitives.
+      assign clk_10mhz = clk;
+      assign clk_core  = clk;
+    end
+  endgenerate
 
   // 1 us pulse generator in core clock domain.
   always_ff @(posedge clk_core or negedge rst_n) begin
