@@ -1,26 +1,26 @@
 # IR TX (`ir_tx`)
 
-Der `ir_tx` erzeugt den 38-kHz-Traeger und moduliert ihn mit `mark_active`.
+The `ir_tx` module generates the 38 kHz carrier frequency and modulates it based on `mark_active`.
 
-## Verhalten
+## Behavior
 
-- `mark_active = 1`: Traeger wird auf `ir_npn_drive` ausgegeben
-- `mark_active = 0`: Ausgang ist Idle-Low (`0`)
-- `ir_led_out` ist ein Kompatibilitaets-Alias von `ir_npn_drive`
-- `ready` ist fuer die einfache TX-Stufe immer `1`
+- `mark_active = 1`: The 38 kHz carrier is output on `ir_npn_drive`.
+- `mark_active = 0`: Output is set to Idle-Low (`0`).
+- `ir_led_out` is a compatibility alias for `ir_npn_drive`.
+- `ready` is always `1` for this simple TX stage.
 
-## Schnittstelle
+## Interface
 
-- Eingang:
-- `clk`, `rst_n`, `mark_active`
-- Ausgaenge:
-- `ir_npn_drive`, `ir_led_out`, `ready`
+- **Inputs**:
+  - `clk`, `rst_n`, `mark_active`
+- **Outputs**:
+  - `ir_npn_drive`, `ir_led_out`, `ready`
 
-`ir_npn_drive` ist fuer eine NPN-Transistorstufe gedacht:
+`ir_npn_drive` is designed to drive an NPN transistor stage:
 
-`FPGA -> Basiswiderstand -> NPN-Basis`, LED am Kollektor.
+`FPGA -> Base Resistor -> NPN Base`, with the LED connected to the Collector.
 
-## Mermaid: Datenpfad
+## Mermaid: Datapath
 
 ```mermaid
 flowchart LR
@@ -35,7 +35,8 @@ flowchart LR
 
 ## Tests
 
-`test/test_ir_tx.py` prueft:
+`test/test_ir_tx.py` verifies:
 
-- Carrier-Toggling bei `mark_active=1`
-- Idle-Low und `ready=1` bei `mark_active=0`
+- Carrier toggling when `mark_active=1`
+- Idle-Low state and `ready=1` when `mark_active=0`
+
