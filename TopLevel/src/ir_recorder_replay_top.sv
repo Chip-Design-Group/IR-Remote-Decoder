@@ -101,6 +101,9 @@ module ir_recorder_replay_top #(
   logic [7:0]           uart_addr, uart_cmd;
   logic                 error_raw;
 
+  // Core clock runs directly from the top-level clock.
+  assign clk_core = clk;
+
 
   // 1 us pulse generator in core clock domain.
   always_ff @(posedge clk_core or negedge rst_n) begin
