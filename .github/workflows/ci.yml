@@ -33,4 +33,4 @@ jobs:
         env:
           SIM: icarus
         run: |
-          pytest TopLevel/test/test_ir_closed_loop.py
+          pytest TopLevel/test/test_ir_closed_loop.py TopLevel/test/test_ir_physical_e2e.py
