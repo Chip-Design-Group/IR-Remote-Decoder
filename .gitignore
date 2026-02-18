@@ -22,5 +22,6 @@ vivado.jou
 *.log
 *.jou
 /TopLevel/vivado*
-/TopLevel/runs/
+/TopLevel/src/runs/
+
 

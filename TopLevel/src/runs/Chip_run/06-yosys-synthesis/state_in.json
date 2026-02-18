@@ -1,9 +1,0 @@
-{
-    "json_h": "/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/05-yosys-jsonheader/ir_recorder_replay_chip_top.h.json",
-    "metrics": {
-        "design__lint_error__count": 0,
-        "design__lint_timing_construct__count": 0,
-        "design__lint_warning__count": 146,
-        "design__inferred_latch__count": 0
-    }
-}

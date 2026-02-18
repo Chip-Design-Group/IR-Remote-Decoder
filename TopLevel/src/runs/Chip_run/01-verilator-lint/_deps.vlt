@@ -1,7 +1,0 @@
-`verilator_config
-lint_off -rule DECLFILENAME
-lint_off -rule EOFNEWLINE
-lint_off -rule UNDRIVEN -file "/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v"
-lint_off -rule UNUSEDSIGNAL -file "/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/609e1f5799f64d95bbc1fba2cbd10a17.bb.v"
-lint_off -rule UNDRIVEN -file "/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v"
-lint_off -rule UNUSEDSIGNAL -file "/workspaces/IR-Remote-Decoder/TopLevel/src/runs/Chip_run/tmp/194060b87912404ab8ce40931ab73b92.bb.v"
