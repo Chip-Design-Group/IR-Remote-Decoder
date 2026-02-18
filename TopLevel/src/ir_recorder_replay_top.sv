@@ -15,15 +15,14 @@
 // Outputs:
 //   ir_tx_npn_drive, ir_led_out
 //   uart_tx
-//   ld7..ld0 (status LEDs)
 //   rec_done, rep_done, busy, error
+//   status flags for wrapper/debug
 //------------------------------------------------------------------------------
 
 module ir_recorder_replay_top #(
   parameter int CORE_CLK_HZ     = 10_000_000,
   parameter int RECORD_TIMEOUT_CYCLES = (3 * CORE_CLK_HZ), // ~3s at 10MHz core
-  parameter int TX_CARRIER_HZ   = 38_000,
-  parameter bit FPGA_CLKING     = 1'b1
+  parameter int TX_CARRIER_HZ   = 38_000
 ) (
   input  logic                  clk,
   input  logic                  rst_n,
@@ -41,14 +40,14 @@ module ir_recorder_replay_top #(
   output logic                  ir_tx_npn_drive,
   output logic                  ir_led_out,
   output logic                  uart_tx,
-  output logic                  ld7,
-  output logic                  ld6,
-  output logic                  ld5,
-  output logic                  ld4,
-  output logic                  ld3,
-  output logic                  ld2,
-  output logic                  ld1,
-  output logic                  ld0,
+
+  // Status outputs for wrapper/debug
+  output logic                  stat_receiving,     // IR activity
+  output logic                  stat_code_valid,    // Valid code decoded
+  output logic                  stat_record_active, // Recording in progress
+  output logic                  stat_uart_active,   // UART TX in progress
+  output logic                  stat_error,         // Error condition
+
   output logic                  rec_done,
   output logic                  rep_done,
   output logic                  busy,
@@ -58,8 +57,7 @@ module ir_recorder_replay_top #(
   // ========================================================
   // Clocking and timing constants
   // ========================================================
-  // - hardware: divide 100 MHz input clock down to 10 MHz core clock
-  // - simulation: bypass divider and use testbench clock directly
+  // Input clk is expected to be the core clock (e.g. 10MHz).
   localparam int TICK_US_DIV = (CORE_CLK_HZ / 1_000_000 > 0) ? (CORE_CLK_HZ / 1_000_000) : 1;
   localparam int TICK_US_W   = (TICK_US_DIV > 1) ? $clog2(TICK_US_DIV) : 1;
   localparam int UART_CLKS_PER_BIT = (CORE_CLK_HZ / 9600 > 0) ? (CORE_CLK_HZ / 9600) : 1;
@@ -67,8 +65,6 @@ module ir_recorder_replay_top #(
   logic [TICK_US_W-1:0] tick_cnt_q;
   logic                 tick_us;
   logic                 clk_core;
-  logic                 clk_10mhz;
-  logic [3:0]           clk_div_cnt_q;
 
   logic record_prev_q, replay_prev_q;
   logic record_pulse, replay_pulse;
@@ -105,47 +101,6 @@ module ir_recorder_replay_top #(
   logic [7:0]           uart_addr, uart_cmd;
   logic                 error_raw;
 
-  localparam int LED_HB_BIT = 23;
-  localparam int LED_REC_BLINK_BIT = 22;
-  localparam int LED_PULSE_TICKS = CORE_CLK_HZ / 5; // ~200ms
-  localparam int LED_CNT_W = (LED_PULSE_TICKS > 1) ? $clog2(LED_PULSE_TICKS) : 1;
-  logic [31:0]          hb_counter_q;
-  logic [LED_CNT_W-1:0] led_ok_cnt_q, led_err_cnt_q, led_uart_cnt_q;
-
-  generate
-    if (FPGA_CLKING) begin : g_fpga_clocking
-`ifndef SIMULATION
-      // Divide by 10 by toggling every 5 cycles.
-      always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-          clk_div_cnt_q <= '0;
-          clk_10mhz     <= 1'b0;
-        end else begin
-          if (clk_div_cnt_q == 4) begin
-            clk_div_cnt_q <= '0;
-            clk_10mhz     <= ~clk_10mhz;
-          end else begin
-            clk_div_cnt_q <= clk_div_cnt_q + 1'b1;
-          end
-        end
-      end
-`else
-      // Simulation: feed core clock directly from the testbench clock.
-      assign clk_10mhz = clk;
-`endif
-
-`ifdef SIMULATION
-      assign clk_core = clk_10mhz;
-`else
-      // FPGA hardware: route the derived clock via global buffer.
-      BUFG clk_core_bufg_i (.I(clk_10mhz), .O(clk_core));
-`endif
-    end else begin : g_asic_clocking
-      // ASIC/integration mode: use incoming clock directly, no FPGA primitives.
-      assign clk_10mhz = clk;
-      assign clk_core  = clk;
-    end
-  endgenerate
 
   // 1 us pulse generator in core clock domain.
   always_ff @(posedge clk_core or negedge rst_n) begin
@@ -159,42 +114,6 @@ module ir_recorder_replay_top #(
         tick_us    <= 1'b1;
       end else begin
         tick_cnt_q <= tick_cnt_q + 1'b1;
-      end
-    end
-  end
-
-  // Slow heartbeat counter for LD7.
-  always_ff @(posedge clk_core or negedge rst_n) begin
-    if (!rst_n) begin
-      hb_counter_q <= '0;
-    end else begin
-      hb_counter_q <= hb_counter_q + 1'b1;
-    end
-  end
-
-  // Pulse stretcher so short events are visible on LEDs.
-  always_ff @(posedge clk_core or negedge rst_n) begin
-    if (!rst_n) begin
-      led_ok_cnt_q   <= '0;
-      led_err_cnt_q  <= '0;
-      led_uart_cnt_q <= '0;
-    end else begin
-      if (dec_valid_mux) begin
-        led_ok_cnt_q <= LED_PULSE_TICKS - 1;
-      end else if (led_ok_cnt_q != '0) begin
-        led_ok_cnt_q <= led_ok_cnt_q - 1'b1;
-      end
-
-      if (error_raw) begin
-        led_err_cnt_q <= LED_PULSE_TICKS - 1;
-      end else if (led_err_cnt_q != '0) begin
-        led_err_cnt_q <= led_err_cnt_q - 1'b1;
-      end
-
-      if (uart_tx_req) begin
-        led_uart_cnt_q <= LED_PULSE_TICKS - 1;
-      end else if (led_uart_cnt_q != '0) begin
-        led_uart_cnt_q <= led_uart_cnt_q - 1'b1;
       end
     end
   end
@@ -415,23 +334,11 @@ module ir_recorder_replay_top #(
   assign error_raw = rec_error || rep_error || enc_error;
   assign error     = error_raw;
 
-  // LED mapping (LD7..LD0):
-  // LD7: slow heartbeat
-  // LD6: IR receive activity
-  // LD5: record active (blink); replay active (solid); when idle, error pulse (stretched)
-  // LD4: decode-OK pulse (stretched)
-  // LD3: error pulse (stretched)
-  // LD2: replay/transmit activity
-  // LD1: global busy
-  // LD0: UART activity pulse (stretched)
-  assign ld7 = hb_counter_q[LED_HB_BIT];
-  assign ld6 = dec_receiving_i;
-  assign ld5 = record_hold_q ? hb_counter_q[LED_REC_BLINK_BIT] :
-               ((rep_busy || enc_busy) ? 1'b1 : (led_err_cnt_q != '0));
-  assign ld4 = (led_ok_cnt_q  != '0);
-  assign ld3 = (led_err_cnt_q != '0);
-  assign ld2 = rep_busy || enc_busy;
-  assign ld1 = busy;
-  assign ld0 = (led_uart_cnt_q != '0);
+  // Status mapping
+  assign stat_receiving = dec_receiving_i;
+  assign stat_code_valid = dec_valid_mux;
+  assign stat_record_active = record_hold_q;
+  assign stat_uart_active = uart_tx_req;
+  assign stat_error = error_raw;
 
 endmodule

@@ -14,23 +14,27 @@ module ir_recorder_replay_chip_top (
 
   output logic       ir_tx_npn_drive,
   output logic       uart_tx,
-  output logic       ld7,
-  output logic       ld6,
-  output logic       ld5,
-  output logic       ld4,
-  output logic       ld3,
-  output logic       ld2,
-  output logic       ld1,
-  output logic       ld0,
-  output logic       rec_done,
-  output logic       rep_done,
-  output logic       busy,
-  output logic       error
+  // User requested optimization: expose activity signals, remove handshake signals to save pins
+  output logic       receiving,
+  output logic       valid,
+  output logic       recording
 );
+
   logic ir_led_out_unused;
+  logic rec_done_unused;
+  logic rep_done_unused;
+  logic busy_unused;
+  logic error_unused;
+  
+  // Internal status signals
+  logic stat_receiving;
+  logic stat_code_valid;
+  logic stat_record_active;
+  logic stat_uart_active;
+  logic stat_error;
 
   ir_recorder_replay_top #(
-    .FPGA_CLKING(1'b0)
+    .CORE_CLK_HZ(10_000_000) // Default core clock assumption for ASIC integration
   ) u_core (
     .clk(clk),
     .rst_n(rst_n),
@@ -44,17 +48,20 @@ module ir_recorder_replay_chip_top (
     .ir_tx_npn_drive(ir_tx_npn_drive),
     .ir_led_out(ir_led_out_unused),
     .uart_tx(uart_tx),
-    .ld7(ld7),
-    .ld6(ld6),
-    .ld5(ld5),
-    .ld4(ld4),
-    .ld3(ld3),
-    .ld2(ld2),
-    .ld1(ld1),
-    .ld0(ld0),
-    .rec_done(rec_done),
-    .rep_done(rep_done),
-    .busy(busy),
-    .error(error)
+    .stat_receiving(stat_receiving),
+    .stat_code_valid(stat_code_valid),
+    .stat_record_active(stat_record_active),
+    .stat_uart_active(stat_uart_active),
+    .stat_error(stat_error),
+    .rec_done(rec_done_unused),
+    .rep_done(rep_done_unused),
+    .busy(busy_unused),
+    .error(error_unused)
   );
+
+  // Map requested status to output pins
+  assign receiving = stat_receiving;
+  assign valid     = stat_code_valid;
+  assign recording = stat_record_active;
+
 endmodule
