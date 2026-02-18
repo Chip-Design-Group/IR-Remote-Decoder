@@ -40,6 +40,16 @@ def read_from_port(port, baudrate=1000000, verbose=False):
         print(f"Connected to {port} at {baudrate} baud.")
         print("Waiting for data... (Press Ctrl+C to stop)")
         dropped_bytes = 0
+        dropped_history = []
+
+        def summarize_drops(history: list[bytes]) -> str:
+            if not history:
+                return ""
+            recent = history[-4:]
+            entries = "; ".join(f"{len(chunk)}B:{chunk.hex()}" for chunk in recent)
+            if len(history) > len(recent):
+                entries += f" (+{len(history) - len(recent)} more)"
+            return f": {entries}"
 
         patterns = [
             FRAME_RE_SAM36,
@@ -70,6 +80,7 @@ def read_from_port(port, baudrate=1000000, verbose=False):
                         frame = frame + b"\n"
                     if not process_frame(frame):
                         dropped_bytes += len(frame)
+                        dropped_history.append(frame)
                     buf = buf[m.end() :]
                     matched = True
                     break
@@ -77,11 +88,15 @@ def read_from_port(port, baudrate=1000000, verbose=False):
                     newline_pos = buf.find(b"\n")
                     if newline_pos == -1:
                         break
-                    buf = buf[newline_pos + 1 :]
+                    dropped_fragment = buf[: newline_pos + 1]
                     dropped_bytes += newline_pos + 1
+                    dropped_history.append(dropped_fragment)
+                    buf = buf[newline_pos + 1 :]
             if dropped_bytes >= 32:
-                print(f"Warning: dropped {dropped_bytes} unsynced/invalid bytes")
+                summary = summarize_drops(dropped_history)
+                print(f"Warning: dropped {dropped_bytes} unsynced/invalid bytes{summary}")
                 dropped_bytes = 0
+                dropped_history.clear()
     except serial.SerialException as e:
         print(f"Error opening serial port {port}: {e}")
     except KeyboardInterrupt:
