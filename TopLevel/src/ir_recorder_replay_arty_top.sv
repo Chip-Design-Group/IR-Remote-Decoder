@@ -111,7 +111,9 @@ module ir_recorder_replay_arty_top (
 
   // Instantiate Core
   ir_recorder_replay_top #(
-    .CORE_CLK_HZ(CORE_CLK_HZ)
+    .CORE_CLK_HZ(CORE_CLK_HZ),
+    .UART_BAUD(1_000_000),
+    .RAW_UART_DEBUG(1'b0)
   ) u_core (
     .clk(clk_core),
     .rst_n(rst_n_PAD),

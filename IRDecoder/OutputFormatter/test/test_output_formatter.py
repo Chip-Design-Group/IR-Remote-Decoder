@@ -2,7 +2,7 @@
 CocoTB Unit Tests for output_formatter module.
 
 Tests the ASCII hex formatting FSM in isolation:
-- Correct byte sequence "A:xx C:yy\n"
+- Correct byte sequence "P:XXXXXXXX A:xx C:yy\n"
 - Handshake with UART (uart_ready / uart_tx_req)
 - Multiple frames in sequence
 - Various address/command values
@@ -18,6 +18,11 @@ from cocotb.triggers import RisingEdge, ClockCycles
 from cocotb_tools.runner import get_runner
 
 CLK_PERIOD_NS = 100  # 10 MHz
+FRAME_LEN_STD = 21
+FRAME_LEN_S32 = 25
+FRAME_LEN_S36 = 28
+FRAME_LEN_S48 = 25
+FRAME_LEN = FRAME_LEN_STD  # default for most tests
 
 
 # ============================================================
@@ -33,19 +38,25 @@ async def setup(dut):
     dut.rst_n.value = 0
     dut.address.value = 0
     dut.command.value = 0
+    dut.protocol_id.value = 0
     dut.valid_in.value = 0
     dut.decode_error.value = 0
     dut.uart_ready.value = 1  # UART initially ready
+    dut.frame_data.value = 0
+    dut.frame_bits.value = 0
 
     await ClockCycles(dut.clk, 5)  # Hold reset for 5 cycles
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 2)  # Wait a few cycles after reset
 
 
-async def trigger_valid(dut, address, command):
+async def trigger_valid(dut, address, command, protocol_id=1, frame_data=0, frame_bits=32):
     """Pulse valid_in for 1 clock cycle with the given address and command."""
     dut.address.value = address
     dut.command.value = command
+    dut.protocol_id.value = protocol_id
+    dut.frame_data.value = frame_data
+    dut.frame_bits.value = frame_bits
     dut.valid_in.value = 1
     await RisingEdge(dut.clk)
     dut.valid_in.value = 0
@@ -87,17 +98,36 @@ def nibble_to_hex_char(n):
     return chr(0x30 + n) if n < 10 else chr(0x41 + n - 10)
 
 
-def expected_string(addr, cmd):
-    """Build the expected output string for a given address and command."""
+def protocol_label(protocol_id):
+    if protocol_id == 1:
+        return "NEC     "
+    if protocol_id == 2:
+        return "ONKYO   "
+    if protocol_id == 3:
+        return "APPLE   "
+    if protocol_id == 8:
+        return "SAM32   "
+    if protocol_id == 9:
+        return "SAM48   "
+    return "UNK     "
+
+
+def expected_standard(addr, cmd, protocol_id=1):
+    """Build the expected output string for a standard NEC-style frame."""
     return (
-        "A:"
-        + nibble_to_hex_char((addr >> 4) & 0xF)
-        + nibble_to_hex_char(addr & 0xF)
+        "P:"
+        + protocol_label(protocol_id)
+        + " A:"
+        + f"{addr:02X}"
         + " C:"
-        + nibble_to_hex_char((cmd >> 4) & 0xF)
-        + nibble_to_hex_char(cmd & 0xF)
+        + f"{cmd:02X}"
         + "\n"
     )
+
+
+def expected_sam32(addr16, cmd16):
+    """Build the expected output string for Sam32 (full 16-bit address & command)."""
+    return f"P:SAM32   A:{addr16:04X} C:{cmd16:04X}\n"
 
 
 # ============================================================
@@ -113,26 +143,26 @@ async def test_reset(dut):
 
 @cocotb.test()
 async def test_basic_output_00_45(dut):
-    """Test that sending address=0x00, command=0x45 produces 'A:00 C:45\\n'."""
+    """Test that sending address=0x00, command=0x45 produces NEC-prefixed output."""
     await setup(dut)
     await trigger_valid(dut, address=0x00, command=0x45)
 
-    result = await collect_bytes(dut, 10)
+    result = await collect_bytes(dut, FRAME_LEN)
     output = bytes_to_str(result)
 
-    assert output == "A:00 C:45\n", f"Expected 'A:00 C:45\\n', got {output!r}"
+    assert output == expected_standard(0x00, 0x45), f"Unexpected output {output!r}"
 
 
 @cocotb.test()
 async def test_output_FF_FF(dut):
-    """Test maximum values: address=0xFF, command=0xFF → 'A:FF C:FF\\n'."""
+    """Test maximum values: address=0xFF, command=0xFF."""
     await setup(dut)
     await trigger_valid(dut, address=0xFF, command=0xFF)
 
-    result = await collect_bytes(dut, 10)
+    result = await collect_bytes(dut, FRAME_LEN)
     output = bytes_to_str(result)
 
-    assert output == "A:FF C:FF\n", f"Expected 'A:FF C:FF\\n', got {output!r}"
+    assert output == expected_standard(0xFF, 0xFF), f"Unexpected output {output!r}"
 
 
 @cocotb.test()
@@ -141,10 +171,10 @@ async def test_output_AB_CD(dut):
     await setup(dut)
     await trigger_valid(dut, address=0xAB, command=0xCD)
 
-    result = await collect_bytes(dut, 10)
+    result = await collect_bytes(dut, FRAME_LEN)
     output = bytes_to_str(result)
 
-    assert output == "A:AB C:CD\n", f"Expected 'A:AB C:CD\\n', got {output!r}"
+    assert output == expected_standard(0xAB, 0xCD), f"Unexpected output {output!r}"
 
 
 @cocotb.test()
@@ -154,10 +184,10 @@ async def test_output_lower_nibbles(dut):
 
     await trigger_valid(dut, address=0x19, command=0xEF)
 
-    result = await collect_bytes(dut, 10)
+    result = await collect_bytes(dut, FRAME_LEN)
     output = bytes_to_str(result)
 
-    assert output == "A:19 C:EF\n", f"Got {output!r}"
+    assert output == expected_standard(0x19, 0xEF), f"Got {output!r}"
 
 
 @cocotb.test()
@@ -169,11 +199,11 @@ async def test_state_transitions(dut):
     await RisingEdge(dut.clk)
 
     # Collect all bytes - this implicitly tests state transitions
-    result = await collect_bytes(dut, 10)
+    result = await collect_bytes(dut, FRAME_LEN)
     await ClockCycles(dut.clk, 3)
 
     # Verify we got all bytes correctly
-    assert len(result) == 10, f"Should have received 10 bytes, got {len(result)}"
+    assert len(result) == FRAME_LEN, f"Should have received {FRAME_LEN} bytes, got {len(result)}"
 
 
 @cocotb.test()
@@ -218,32 +248,47 @@ async def test_two_consecutive_outputs(dut):
 
     # First frame
     await trigger_valid(dut, address=0x00, command=0x45)
-    r1 = await collect_bytes(dut, 10)
+    r1 = await collect_bytes(dut, FRAME_LEN)
     await ClockCycles(dut.clk, 5)
 
     # Second frame
     await trigger_valid(dut, address=0xAB, command=0xCD)
-    r2 = await collect_bytes(dut, 10)
+    r2 = await collect_bytes(dut, FRAME_LEN)
 
-    assert bytes_to_str(r1) == "A:00 C:45\n", f"First frame: {bytes_to_str(r1)!r}"
-    assert bytes_to_str(r2) == "A:AB C:CD\n", f"Second frame: {bytes_to_str(r2)!r}"
+    assert bytes_to_str(r1) == expected_standard(0x00, 0x45), f"First frame: {bytes_to_str(r1)!r}"
+    assert bytes_to_str(r2) == expected_standard(0xAB, 0xCD), f"Second frame: {bytes_to_str(r2)!r}"
 
 
 @cocotb.test()
 async def test_byte_sequence_exact(dut):
-    """Verify individual byte values for address=0x3F, command=0xA0."""
+    """Verify individual byte values for address=0x3F, command=0xA0 (NEC)."""
     await setup(dut)
     await trigger_valid(dut, address=0x3F, command=0xA0)
 
-    result = await collect_bytes(dut, 10)
+    result = await collect_bytes(dut, FRAME_LEN)
     expected = [
+        0x50,  # 'P'
+        0x3A,  # ':'
+        0x4E,  # 'N'
+        0x45,  # 'E'
+        0x43,  # 'C'
+        0x20,  # ' '
+        0x20,  # ' '
+        0x20,  # ' '
+        0x20,  # ' '
+        0x20,  # ' '
+        0x20,  # ' '
         0x41,  # 'A'
         0x3A,  # ':'
+        0x43,  # 'C'
+        0x30,  # '0'
         0x33,  # '3'
         0x46,  # 'F'
         0x20,  # ' '
         0x43,  # 'C'
         0x3A,  # ':'
+        0x35,  # '5'
+        0x46,  # 'F'
         0x41,  # 'A'
         0x30,  # '0'
         0x0A,  # '\n'
@@ -263,9 +308,9 @@ async def test_all_256x256_combinations(dut):
     for addr in range(256):
         for cmd in range(256):
             await trigger_valid(dut, address=addr, command=cmd)
-            result = await collect_bytes(dut, 10)
+            result = await collect_bytes(dut, FRAME_LEN)
             output = bytes_to_str(result)
-            exp = expected_string(addr, cmd)
+            exp = expected_standard(addr, cmd, protocol_id=1)
 
             if output != exp:
                 fail_count += 1
@@ -281,7 +326,96 @@ async def test_all_256x256_combinations(dut):
         f"addr=0x{first_fail[0]:02X} cmd=0x{first_fail[1]:02X} "
         f"got {first_fail[2]!r}, expected {first_fail[3]!r}"
     )
-    
+
+
+@cocotb.test()
+async def test_sam32_protocol_prefix(dut):
+    """Protocol label should switch to SAM32 for protocol_id=8."""
+    await setup(dut)
+    await trigger_valid(dut, address=0x07, command=0x99, protocol_id=8)
+    result = await collect_bytes(dut, FRAME_LEN_STD)
+    output = bytes_to_str(result)
+    assert output == expected_sam32(0x0000, 0x0000), f"Unexpected output {output!r}"
+
+
+@cocotb.test()
+async def test_sam32_full_output(dut):
+    """Sam32 should emit 16-bit address and command pairs."""
+    await setup(dut)
+    frame_data_val = (0xAB << 24) | (0xCD << 16) | (0x12 << 8) | 0x34
+    await trigger_valid(
+        dut,
+        address=0x34,
+        command=0xCD,
+        protocol_id=8,
+        frame_data=frame_data_val,
+        frame_bits=32
+    )
+    result = await collect_bytes(dut, FRAME_LEN_S32)
+    output = bytes_to_str(result)
+    assert output == expected_sam32(0x1234, 0xABCD), f"Unexpected Sam32 output {output!r}"
+
+
+@cocotb.test()
+async def test_samsung36_id_field(dut):
+    """Samsung36 output should include the 4-bit ID nibble from frame_data."""
+    await setup(dut)
+    frame_data_val = (0x8877 << 32) | (0xA << 28)
+    await trigger_valid(
+        dut,
+        address=0x77,
+        command=0x0F,
+        protocol_id=9,
+        frame_data=frame_data_val,
+        frame_bits=36
+    )
+    result = await collect_bytes(dut, FRAME_LEN_S36)
+    output = bytes_to_str(result)
+    assert output == "P:SAM36    A:8877 ID:A C:0F\n", f"Unexpected output {output!r}"
+
+
+@cocotb.test()
+async def test_onkyo_protocol_prefix(dut):
+    """Protocol label should switch to ONKYO for protocol_id=2."""
+    await setup(dut)
+    await trigger_valid(dut, address=0x12, command=0x56, protocol_id=2)
+    result = await collect_bytes(dut, FRAME_LEN_STD)
+    output = bytes_to_str(result)
+    assert output == expected_standard(0x12, 0x56, protocol_id=2), f"Unexpected output {output!r}"
+
+
+@cocotb.test()
+async def test_apple_protocol_prefix(dut):
+    """Protocol label should switch to APPLE for protocol_id=3."""
+    await setup(dut)
+    await trigger_valid(dut, address=0xEE, command=0x50, protocol_id=3)
+    result = await collect_bytes(dut, FRAME_LEN_STD)
+    output = bytes_to_str(result)
+    assert output == expected_standard(0xEE, 0x50, protocol_id=3), f"Unexpected output {output!r}"
+
+
+@cocotb.test()
+async def test_samsung48_output(dut):
+    """Samsung48 should output 4-digit command from frame_data[31:16]."""
+    await setup(dut)
+    # frame_data layout (48-bit, LSB-first shift register after 48 bits):
+    # bits[15:0]  = address bytes
+    # bits[31:16] = command bytes (16-bit command for SAM48)
+    # bits[47:32] = upper 16 bits (unused here)
+    # Example: addr=0x07, cmd16=0xE0BF
+    frame_data_val = (0x07 << 0) | (0x07 << 8) | (0xBF << 16) | (0xE0 << 24)
+    await trigger_valid(
+        dut,
+        address=0x07,
+        command=0xBF,  # lower 8 bits of cmd16
+        protocol_id=9,  # PROTO_SAMSUNG48
+        frame_data=frame_data_val,
+        frame_bits=48
+    )
+    result = await collect_bytes(dut, FRAME_LEN_S48)
+    output = bytes_to_str(result)
+    assert output == "P:SAM48    A:07 C:E0BF\n", f"Unexpected SAM48 output {output!r}"
+
 def test_output_formatter_runner():
     """Simulate the output_formatter using the Python runner."""
     sim = os.getenv("SIM", "icarus")

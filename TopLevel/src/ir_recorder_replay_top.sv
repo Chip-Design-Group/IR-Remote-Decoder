@@ -22,7 +22,9 @@
 module ir_recorder_replay_top #(
   parameter int CORE_CLK_HZ     = 10_000_000,
   parameter int RECORD_TIMEOUT_CYCLES = (3 * CORE_CLK_HZ), // ~3s at 10MHz core
-  parameter int TX_CARRIER_HZ   = 38_000
+  parameter int TX_CARRIER_HZ   = 38_000,
+  parameter int UART_BAUD       = 1_000_000,
+  parameter bit RAW_UART_DEBUG  = 1'b0
 ) (
   input  logic                  clk,
   input  logic                  rst_n,
@@ -60,7 +62,7 @@ module ir_recorder_replay_top #(
   // Input clk is expected to be the core clock (e.g. 10MHz).
   localparam int TICK_US_DIV = (CORE_CLK_HZ / 1_000_000 > 0) ? (CORE_CLK_HZ / 1_000_000) : 1;
   localparam int TICK_US_W   = (TICK_US_DIV > 1) ? $clog2(TICK_US_DIV) : 1;
-  localparam int UART_CLKS_PER_BIT = (CORE_CLK_HZ / 9600 > 0) ? (CORE_CLK_HZ / 9600) : 1;
+  localparam int UART_CLKS_PER_BIT = (CORE_CLK_HZ / UART_BAUD > 0) ? (CORE_CLK_HZ / UART_BAUD) : 1;
 
   logic [TICK_US_W-1:0] tick_cnt_q;
   logic                 tick_us;
@@ -77,9 +79,13 @@ module ir_recorder_replay_top #(
   logic [17:0]          pulse_width;
   logic                 dec_data_valid_i, dec_error_i, dec_receiving_i;
   logic [7:0]           dec_addr_i, dec_cmd_i;
+  logic [4:0]           dec_protocol_i;
+  logic [47:0]          dec_frame_data_i;
+  logic [5:0]           dec_frame_bits_i;
 
   logic                 dec_valid_mux;
   logic                 dec_error_mux;
+  logic [4:0]           protocol_id_mux;
   logic [31:0]          dec_payload_mux;
   logic [31:0]          rec_payload;
 
@@ -96,11 +102,14 @@ module ir_recorder_replay_top #(
   logic                 enc_start, enc_mark_active, enc_frame_active, enc_frame_done, enc_busy, enc_error;
   logic                 tx_ready, enc_ready;
   logic [31:0]          enc_payload;
-  logic [7:0]           uart_data;
-  logic                 uart_tx_req, uart_ready;
+  logic [7:0]           uart_data, uart_data_raw, uart_data_fmt;
+  logic                 uart_tx_req, uart_tx_req_raw, uart_tx_req_fmt, uart_ready;
+  logic                 uart_ready_raw, uart_ready_fmt;
   logic [7:0]           uart_addr, uart_cmd;
+  logic [4:0]           uart_protocol_id;
   logic                 error_raw;
 
+  assign clk_core = clk;
 
   // 1 us pulse generator in core clock domain.
   always_ff @(posedge clk_core or negedge rst_n) begin
@@ -184,6 +193,9 @@ module ir_recorder_replay_top #(
     .decode_error(dec_error_i),
     .address    (dec_addr_i),
     .command    (dec_cmd_i),
+    .protocol_id(dec_protocol_i),
+    .frame_data (dec_frame_data_i),
+    .frame_bits (dec_frame_bits_i),
     .receiving  (dec_receiving_i)
   );
 
@@ -194,6 +206,7 @@ module ir_recorder_replay_top #(
     if (use_external_decoder_data) begin
       dec_valid_mux   = dec_valid;
       dec_payload_mux = dec_payload;
+      protocol_id_mux = 5'd0;
       dec_error_mux   = 1'b0;
     end else begin
       dec_valid_mux           = dec_data_valid_i;
@@ -201,7 +214,9 @@ module ir_recorder_replay_top #(
       // store it in 8-bit NEC form: {addr_inv, addr}.
       dec_payload_mux[31:16]  = {~dec_addr_i, dec_addr_i};
       dec_payload_mux[15:8]   = dec_cmd_i;
-      dec_payload_mux[7:0]    = 8'h00;
+      dec_payload_mux[7:3]    = dec_protocol_i;
+      dec_payload_mux[2:0]    = 3'b000;
+      protocol_id_mux         = dec_protocol_i;
       dec_error_mux           = dec_error_i;
     end
   end
@@ -214,6 +229,7 @@ module ir_recorder_replay_top #(
     rec_payload[0] = 1'b1; // valid bit
     uart_addr = dec_payload_mux[23:16];
     uart_cmd  = dec_payload_mux[15:8];
+    uart_protocol_id = protocol_id_mux;
   end
 
   // -------------------------
@@ -299,17 +315,52 @@ module ir_recorder_replay_top #(
   // -------------------------
   // UART diagnostics datapath
   // -------------------------
+  // Always build both formatters. In RAW mode we still prioritize decoded frames
+  // when available, so protocol recognition stays visible during pulse debugging.
+  assign uart_ready_fmt = uart_ready;
+  assign uart_ready_raw = uart_ready & ~uart_tx_req_fmt;
+
+  raw_pulse_uart_formatter u_raw_pulse_uart_formatter (
+    .clk         (clk_core),
+    .rst_n       (rst_n),
+    .pulse_done  (pulse_done),
+    .pulse_width (pulse_width),
+    .pulse_level (pulse_level),
+    .pulse_timeout(timeout),
+    .uart_ready  (uart_ready_raw),
+    .uart_data   (uart_data_raw),
+    .uart_tx_req (uart_tx_req_raw)
+  );
+
   output_formatter u_output_formatter (
     .clk        (clk_core),
     .rst_n      (rst_n),
     .address    (uart_addr),
     .command    (uart_cmd),
+    .protocol_id(uart_protocol_id),
     .valid_in   (dec_valid_mux),
     .decode_error(dec_error_mux),
-    .uart_ready (uart_ready),
-    .uart_data  (uart_data),
-    .uart_tx_req(uart_tx_req)
+    .frame_data (dec_frame_data_i),
+    .frame_bits (dec_frame_bits_i),
+    .uart_ready (uart_ready_fmt),
+    .uart_data  (uart_data_fmt),
+    .uart_tx_req(uart_tx_req_fmt)
   );
+
+  always_comb begin
+    if (RAW_UART_DEBUG) begin
+      if (uart_tx_req_fmt) begin
+        uart_data   = uart_data_fmt;
+        uart_tx_req = uart_tx_req_fmt;
+      end else begin
+        uart_data   = uart_data_raw;
+        uart_tx_req = uart_tx_req_raw;
+      end
+    end else begin
+      uart_data   = uart_data_fmt;
+      uart_tx_req = uart_tx_req_fmt;
+    end
+  end
 
   uart_tx #(
     .CLOCKS_PER_BIT(UART_CLKS_PER_BIT)
