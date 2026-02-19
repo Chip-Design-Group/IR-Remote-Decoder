@@ -12,6 +12,10 @@ module ir_recorder_replay_arty_top (
   input  logic btn_record_PAD,
   input  logic btn_replay_PAD,
 
+  // ESP32-C3 Software-SPI interface
+  input  logic spi_clk_PAD,
+  input  logic spi_data_PAD,
+
   output logic uart_tx_PAD,
   output logic ir_tx_PAD,
   output logic led4_PAD, // status_ok
@@ -49,8 +53,8 @@ module ir_recorder_replay_arty_top (
   // ========================================================
   // Status LED Logic
   // ========================================================
-  localparam int LED_HB_BIT = 23;      // ~0.8s period at 10MHz
-  localparam int LED_REC_BLINK_BIT = 22; // ~0.4s period
+  localparam int LED_HB_BIT = 23;         // ~0.8s period at 10MHz
+  localparam int LED_REC_BLINK_BIT = 20;  // ~0.1s period (fast blink = recording)
   localparam int LED_PULSE_TICKS = CORE_CLK_HZ / 5; // ~200ms stretch
   localparam int LED_CNT_W = (LED_PULSE_TICKS > 1) ? $clog2(LED_PULSE_TICKS) : 1;
 
@@ -69,6 +73,15 @@ module ir_recorder_replay_arty_top (
   logic rec_done, rep_done, busy, error;
   logic ir_led_alias_unused;
   logic ir_tx_npn_drive;
+
+  // ESP32 SPI receiver outputs
+  logic esp_replay_req, esp_record_req;
+  logic [2:0] esp_slot_addr;
+  logic [2:0] esp_slot_addr_lat; // latched slot — held until next command
+
+  // Combined control signals (button OR ESP32)
+  logic combined_record_req, combined_replay_req;
+  logic [2:0] combined_slot_sel;
 
   // Heartbeat counter
   always_ff @(posedge clk_core or negedge rst_n_PAD) begin
@@ -109,6 +122,35 @@ module ir_recorder_replay_arty_top (
     end
   end
 
+  // ========================================================
+  // ESP32 SPI Receiver
+  // ========================================================
+  esp32_spi_receiver u_esp32_spi (
+    .clk         (clk_core),
+    .rst_n       (rst_n_PAD),
+    .spi_clk_in  (spi_clk_PAD),
+    .spi_data_in (spi_data_PAD),
+    .replay_req  (esp_replay_req),
+    .record_req  (esp_record_req),
+    .slot_addr   (esp_slot_addr)
+  );
+
+  // Latch esp_slot_addr when a SPI command fires so slot_sel stays
+  // stable after the 1-cycle pulse has gone low.
+  always_ff @(posedge clk_core or negedge rst_n_PAD) begin
+    if (!rst_n_PAD)
+      esp_slot_addr_lat <= 3'd0;
+    else if (esp_record_req || esp_replay_req)
+      esp_slot_addr_lat <= esp_slot_addr;
+  end
+
+  // Merge physical buttons with ESP32 commands.
+  // Latched slot used so value persists after the 1-cycle SPI pulse.
+  assign combined_record_req = btn_record_PAD | esp_record_req;
+  assign combined_replay_req = btn_replay_PAD | esp_replay_req;
+  assign combined_slot_sel   = (esp_record_req || esp_replay_req)
+                               ? esp_slot_addr : esp_slot_addr_lat;
+
   // Instantiate Core
   ir_recorder_replay_top #(
     .CORE_CLK_HZ(CORE_CLK_HZ),
@@ -118,17 +160,17 @@ module ir_recorder_replay_arty_top (
     .clk(clk_core),
     .rst_n(rst_n_PAD),
     .ir_in(ir_in_PAD),
-    .record_req(btn_record_PAD),
-    .replay_req(btn_replay_PAD),
-    .slot_sel(3'b000), // MVP: fixed slot 0 on hardware
+    .record_req(combined_record_req),
+    .replay_req(combined_replay_req),
+    .slot_sel(combined_slot_sel),
     .use_external_decoder_data(1'b0),
     .dec_valid(1'b0),
     .dec_payload(32'h0000_0000),
-    
+
     .ir_tx_npn_drive(ir_tx_npn_drive),
     .ir_led_out(ir_led_alias_unused),
     .uart_tx(uart_tx_PAD),
-    
+
     .stat_receiving(stat_receiving),
     .stat_code_valid(stat_code_valid),
     .stat_record_active(stat_record_active),
@@ -150,14 +192,10 @@ module ir_recorder_replay_arty_top (
   // LD6: Receiving indicator
   assign led6_PAD = stat_receiving;
 
-  // LD5: Record blink / Busy solid / Error pulse
-  // Logic: 
-  //   If Recording -> Blink
-  //   Else if Busy -> Solid On
-  //   Else if Error Pulse -> Solid On
-  //   Else -> Off
-  assign led5_PAD = stat_record_active ? hb_counter_q[LED_REC_BLINK_BIT] :
-                    (busy ? 1'b1 : (led_err_cnt_q != '0));
+  // LD5: Fast blink while recording, off after signal stored
+  //   Recording  → fast blink (LED_REC_BLINK_BIT ~0.1s)
+  //   Done/Idle  → OFF
+  assign led5_PAD = stat_record_active ? hb_counter_q[LED_REC_BLINK_BIT] : 1'b0;
 
   // LD4: Code Valid Pulse
   assign led4_PAD = (led_ok_cnt_q != '0);

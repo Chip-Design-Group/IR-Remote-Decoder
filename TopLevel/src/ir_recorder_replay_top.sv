@@ -151,14 +151,14 @@ module ir_recorder_replay_top #(
   assign replay_pulse = replay_req & ~replay_prev_q;
 
   // Latch record request until recorder finishes (done/error).
+  // No busy guard: short ESP32 pulses must not be dropped.
   always_ff @(posedge clk_core or negedge rst_n) begin
     if (!rst_n) begin
       record_hold_q <= 1'b0;
     end else begin
       if (rec_done_i || rec_error) begin
         record_hold_q <= 1'b0;
-      end else if (record_pulse && !busy) begin
-        // Keep recording active until a valid decoded frame is stored.
+      end else if (record_pulse) begin
         record_hold_q <= 1'b1;
       end
     end

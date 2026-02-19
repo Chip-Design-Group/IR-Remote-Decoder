@@ -51,6 +51,7 @@ module ir_replay_fsm #(
   localparam logic [2:0] ST_START_ENCODE = 3'd5;
   localparam logic [2:0] ST_DONE         = 3'd6;
   localparam logic [2:0] ST_ERROR        = 3'd7;
+  localparam logic [4:0] PROTO_SAMSUNG36 = 5'd9;
 
   logic [2:0] state_q, state_d;
 
@@ -60,6 +61,25 @@ module ir_replay_fsm #(
   logic [2:0]               slot_q, slot_d;
   ir_word_t                  word_q, word_d;
   ir_payload_t               payload_q, payload_d;
+
+  // Samsung36 stores semantic fields in frame_data[47:12]; encoder expects
+  // contiguous serial bits in frame_data[35:0] (LSB-first per field).
+  function automatic logic [IR_FRAME_DATA_WIDTH-1:0] map_sam36_frame_data(
+    input logic [IR_FRAME_DATA_WIDTH-1:0] raw_src,
+    input logic [IR_FRAME_BITS_WIDTH-1:0] bits
+  );
+    logic [IR_FRAME_DATA_WIDTH-1:0] result;
+    begin
+      result = '0;
+      if (bits >= 6'd36) begin
+        for (int idx = 0; idx < 16; idx++) result[idx]      = raw_src[32 + idx];
+        for (int idx = 0; idx < 4; idx++)  result[16 + idx] = raw_src[28 + idx];
+        for (int idx = 0; idx < 8; idx++)  result[20 + idx] = raw_src[20 + idx];
+        for (int idx = 0; idx < 8; idx++)  result[28 + idx] = raw_src[12 + idx];
+      end
+      return result;
+    end
+  endfunction
 
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -100,10 +120,13 @@ module ir_replay_fsm #(
       ST_READ_WAIT: begin
         if (mem_rd_valid) begin
           word_d = mem_rd_data;
-          payload_d.frame_data = mem_rd_data[IR_FRAME_DATA_MSB:IR_FRAME_DATA_LSB];
-          payload_d.frame_bits = mem_rd_data[IR_FRAME_BITS_MSB:IR_FRAME_BITS_LSB];
-          payload_d.protocol_id = mem_rd_data[IR_PROTOCOL_ID_MSB:IR_PROTOCOL_ID_LSB];
-          payload_d.flags = mem_rd_data[IR_FLAGS_MSB:IR_FLAGS_LSB];
+          payload_d = ir_types_pkg::ir_unpack_word(mem_rd_data);
+          if (payload_d.protocol_id == PROTO_SAMSUNG36) begin
+            payload_d.frame_data = map_sam36_frame_data(
+              payload_d.frame_data,
+              payload_d.frame_bits
+            );
+          end
           state_d = ST_DECODE_WORD;
         end
       end

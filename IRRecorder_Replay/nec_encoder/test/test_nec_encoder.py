@@ -19,9 +19,9 @@ from cocotb_tools.runner import get_runner
 IR_FLAG_WIDTH = 8
 IR_FRAME_BITS_WIDTH = 6
 IR_PROTOCOL_ID_WIDTH = 5
-FRAME_BITS_SHIFT = IR_FLAG_WIDTH
-PROTOCOL_SHIFT = FRAME_BITS_SHIFT + IR_FRAME_BITS_WIDTH
-FRAME_DATA_SHIFT = PROTOCOL_SHIFT + IR_PROTOCOL_ID_WIDTH
+PROTOCOL_SHIFT = IR_FLAG_WIDTH
+FRAME_BITS_SHIFT = PROTOCOL_SHIFT + IR_PROTOCOL_ID_WIDTH
+FRAME_DATA_SHIFT = FRAME_BITS_SHIFT + IR_FRAME_BITS_WIDTH
 
 
 def _build_frame_data(address, command):
@@ -36,8 +36,8 @@ def _build_frame_data(address, command):
 def pack_payload(address, command, flags, protocol_id=0x01, frame_bits=32):
     frame_data = _build_frame_data(address, command) & ((1 << 32) - 1)
     word = ((frame_data << FRAME_DATA_SHIFT) |
-            ((frame_bits & ((1 << IR_FRAME_BITS_WIDTH) - 1)) << PROTOCOL_SHIFT) |
-            ((protocol_id & ((1 << IR_PROTOCOL_ID_WIDTH) - 1)) << FRAME_BITS_SHIFT) |
+            ((frame_bits & ((1 << IR_FRAME_BITS_WIDTH) - 1)) << FRAME_BITS_SHIFT) |
+            ((protocol_id & ((1 << IR_PROTOCOL_ID_WIDTH) - 1)) << PROTOCOL_SHIFT) |
             (flags & 0xFF))
     return word
 

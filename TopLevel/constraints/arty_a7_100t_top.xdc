@@ -25,3 +25,7 @@ set_property PULLUP true [get_ports { ir_in_PAD }]
 ## IR transmitter drive on JA2
 set_property -dict { PACKAGE_PIN B11   IOSTANDARD LVCMOS33 } [get_ports { ir_tx_PAD }]
 
+## ESP32-C3 Software-SPI on JA3 (CLK) and JA4 (DATA)
+## Connect ESP32 GPIO5 → FPGA JA3, GPIO4 → FPGA JA4, GND → GND
+set_property -dict { PACKAGE_PIN A11   IOSTANDARD LVCMOS33 } [get_ports { spi_clk_PAD }]
+set_property -dict { PACKAGE_PIN D12   IOSTANDARD LVCMOS33 } [get_ports { spi_data_PAD }]
