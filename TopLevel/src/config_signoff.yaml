@@ -52,15 +52,19 @@ PDN_HSPACING: 2.5
 PDN_VOFFSET: 2.5
 PDN_HOFFSET: 2.5
 ERROR_ON_PDN_VIOLATIONS: false
+RUN_POST_GRT_RESIZER_TIMING: true
 
 PRIMARY_GDSII_STREAMOUT_TOOL: klayout
 MAGIC_EXT_UNIQUE: notopports
-PAD_BONDPAD_NAME: null
+PAD_BONDPAD_NAME: bondpad_70x70
+
+EXTRA_GDS: dir::../bondpad/bondpad_70x70.gds
+EXTRA_LEFS: dir::../bondpad/bondpad_70x70.lef
 
 PL_TARGET_DENSITY_PCT: 40
 GPL_CELL_PADDING: 2
 ERROR_ON_SYNTH_CHECKS: true
-WIRE_LENGTH_THRESHOLD: 1500
+WIRE_LENGTH_THRESHOLD: 2000
 
 PAD_WEST:
   - u_pad_clk
@@ -84,8 +88,7 @@ PAD_NORTH:
   - u_pad_recording
 
 PAD_PLACE_IO_TERMINALS:
-  - "sg13g2_IOPadIn/pad"
-  - "sg13g2_IOPadOut30mA/pad"
+  - "bondpad_70x70/pad"
 
 IGNORE_DISCONNECTED_MODULES:
   - ir_recorder_replay_padframe_top
