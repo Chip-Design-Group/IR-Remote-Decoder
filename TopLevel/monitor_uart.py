@@ -14,6 +14,7 @@ FRAME_RE_SAM36  = re.compile(
 )
 FRAME_RE_RAW_MS = re.compile(rb"^R L:[01] M:[0-9]{2}\.[0-9]{3} T:[01]\r?\n$")
 FRAME_RE_RAW_HEX = re.compile(rb"^R L:[01] W:[0-9A-F]{5} T:[01]\r?\n$")
+FRAME_RE_PROTO_FALLBACK = re.compile(rb"^P:.*\r?\n$")
 
 def find_serial_ports():
     """Lists availables serial ports cross-platform."""
@@ -28,6 +29,7 @@ def read_from_port(port, baudrate=1000000, verbose=False):
             or FRAME_RE_OLD.match(frame_bytes)
             or FRAME_RE_RAW_MS.match(frame_bytes)
             or FRAME_RE_RAW_HEX.match(frame_bytes)
+            or FRAME_RE_PROTO_FALLBACK.match(frame_bytes)
         ):
             frame_text = frame_bytes.decode("ascii").replace("\n", "\\n")
             print(f"Frame: {frame_text}")
@@ -57,6 +59,7 @@ def read_from_port(port, baudrate=1000000, verbose=False):
             FRAME_RE_OLD,
             FRAME_RE_RAW_MS,
             FRAME_RE_RAW_HEX,
+            FRAME_RE_PROTO_FALLBACK,
         ]
 
         while True:

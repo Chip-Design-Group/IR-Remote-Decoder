@@ -70,7 +70,8 @@ module nec_decoder (
     localparam BIT0_MAX = 18'd9000;   // 900 µs
 
     // Logical 1 Space: 1690µs = 16900 cycles
-    localparam BIT1_MIN = 18'd10000;  // 1000 µs
+    // Keep this above the N8X2 one-window to avoid overlap.
+    localparam BIT1_MIN = 18'd14000;  // 1400 µs
     localparam BIT1_MAX = 18'd24000;  // 2400 µs
     // NEC-like custom variant: logical 1 around 1.03ms
     localparam BIT1X2_MIN = 18'd9000;  // 900 µs
@@ -123,6 +124,7 @@ module nec_decoder (
 
     // Pulse classification
     logic is_nec_agc_burst, is_samsung_agc_burst, is_agc_space, is_repeat_space, is_bit_burst;
+    logic is_bit_burst_x2;
     logic is_bit0_space, is_bit1_space, is_bit1x2_space;
     logic is_samsung_split_space;
     logic [4:0] leader_protocol;
@@ -145,6 +147,8 @@ module nec_decoder (
         is_agc_space    = (pulse_width >= SPACE_MIN)   && (pulse_width <= SPACE_MAX);
         is_repeat_space = (pulse_width >= REPEAT_MIN)  && (pulse_width <= REPEAT_MAX);
         is_bit_burst    = (pulse_width >= BURST_MIN)   && (pulse_width <= BURST_MAX);
+        // Some NEC-like remotes use ~1.03ms mark for logical '1'.
+        is_bit_burst_x2 = (pulse_width >= BIT1X2_MIN)  && (pulse_width <= BIT1X2_MAX);
         is_bit0_space   = (pulse_width >= BIT0_MIN)    && (pulse_width <= BIT0_MAX);
         is_bit1_space   = (pulse_width >= BIT1_MIN)    && (pulse_width <= BIT1_MAX);
         is_bit1x2_space = (pulse_width >= BIT1X2_MIN)  && (pulse_width <= BIT1X2_MAX);
@@ -250,7 +254,8 @@ module nec_decoder (
                 if (timeout)
                     next_state = IDLE;
                 else if (pulse_done) begin
-                    if (pulse_level == mark_level && is_bit_burst)
+                    if (pulse_level == mark_level &&
+                        (is_bit_burst || ((leader_protocol == PROTO_NEC) && is_bit_burst_x2)))
                         next_state = DATA;
                     else
                         next_state = IDLE;
@@ -283,7 +288,8 @@ module nec_decoder (
                         end
                     end else begin
                         // Received burst
-                        if (pulse_level == mark_level && is_bit_burst) begin
+                        if (pulse_level == mark_level &&
+                            (is_bit_burst || ((leader_protocol == PROTO_NEC) && is_bit_burst_x2))) begin
                             // Valid burst, stay in DATA
                         end else begin
                             next_state = IDLE; // Invalid burst
@@ -354,7 +360,8 @@ module nec_decoder (
 
                 SPACE: begin
                     // First bit burst detected → enter DATA on next cycle
-                    if (pulse_done && pulse_level == mark_level && is_bit_burst)
+                    if (pulse_done && pulse_level == mark_level &&
+                        (is_bit_burst || ((leader_protocol == PROTO_NEC) && is_bit_burst_x2)))
                         wait_for_space <= 1'b1;
                 end
 
@@ -382,7 +389,8 @@ module nec_decoder (
                             end
                         end else begin
                             // Burst received → wait for space
-                            if (pulse_level == mark_level && is_bit_burst)
+                            if (pulse_level == mark_level &&
+                                (is_bit_burst || ((leader_protocol == PROTO_NEC) && is_bit_burst_x2)))
                                 wait_for_space <= 1'b1;
                         end
                     end
