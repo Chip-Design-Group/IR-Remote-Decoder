@@ -27,14 +27,14 @@ package ir_types_pkg;
                                 IR_FRAME_BITS_WIDTH +
                                 IR_PROTOCOL_ID_WIDTH +
                                 IR_FLAG_WIDTH;
-  localparam int IR_SLOT_COUNT = 8;
-  localparam int IR_SLOT_WIDTH = 3;
+  localparam int IR_SLOT_COUNT = 40;  // 4 remotes x 10 slots each
+  localparam int IR_SLOT_WIDTH = 6;   // 2^6=64 >= 40; [5:4]=remote_id [3:0]=slot_num
 
   //--------------------------------------------------------------------------
   // Slot-/Frame-Datentypen
   //--------------------------------------------------------------------------
   typedef logic [66:0] ir_word_t;    // 67-bit storage word
-  typedef logic [2:0]  ir_slot_t;    // 8 slots
+  typedef logic [5:0]  ir_slot_t;    // 40 slots (4 remotes x 10)
 
   typedef struct packed {
     logic [IR_FRAME_DATA_WIDTH-1:0] frame_data;

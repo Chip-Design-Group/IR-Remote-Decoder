@@ -88,3 +88,7 @@ assign combined_slot_sel = (esp_record_req || esp_replay_req)
 | Record/Replay über Web-UI          | ✅     |
 | LED5 blinkt während Aufnahme       | ✅     |
 | Physische Buttons weiter nutzbar   | ✅     |
+
+
+
+![alt text](image.png)

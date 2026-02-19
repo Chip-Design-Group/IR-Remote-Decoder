@@ -33,11 +33,13 @@ REPEAT_SPACE = 22500   # 2.25 ms
 BIT_BURST    = 5600    # 560 µs
 BIT0_SPACE   = 5600    # 560 µs  (logical 0)
 BIT1_SPACE   = 16900   # 1.69 ms (logical 1)
+BIT1X2_SPACE = 10300   # 1.03 ms (custom NEC-like '1')
 
 PROTO_UNKNOWN = 0
 PROTO_NEC = 1
 PROTO_SAMSUNG = 8
 PROTO_SAMSUNG48 = 9
+PROTO_NEC8X2 = 10
 
 
 # ============================================================
@@ -225,6 +227,23 @@ async def send_samsung_frame_addr16(dut, address_hi, address_lo, command):
             await send_pulse(dut, BIT0_SPACE, 1)
         else:
             await send_pulse(dut, BIT1_SPACE, 1)
+
+    await send_pulse(dut, BIT_BURST, 0)
+    await ClockCycles(dut.clk, 5)
+
+
+async def send_nec8x2_frame(dut, command):
+    """Send NEC-like 8-bit frame with 560us/1030us data spaces."""
+    await send_pulse(dut, NEC_AGC_BURST, 0)
+    await send_pulse(dut, AGC_SPACE, 1)
+
+    for i in range(8):
+        bit = (command >> i) & 1
+        await send_pulse(dut, BIT_BURST, 0)
+        if bit == 0:
+            await send_pulse(dut, BIT0_SPACE, 1)
+        else:
+            await send_pulse(dut, BIT1X2_SPACE, 1)
 
     await send_pulse(dut, BIT_BURST, 0)
     await ClockCycles(dut.clk, 5)
@@ -631,6 +650,18 @@ async def test_decode_samsung_split_space_frame(dut):
     assert result.address == 0x07, f"Expected address 0x07, got {hex(result.address)}"
     assert result.command == 0x02, f"Expected command 0x02, got {hex(result.command)}"
     assert result.protocol_id == PROTO_SAMSUNG48, f"Expected protocol SAMSUNG48, got {result.protocol_id}"
+
+
+@cocotb.test()
+async def test_decode_nec8x2_frame(dut):
+    """NEC-like 8-bit frame with 1.03ms logical-1 space should decode as PROTO_NEC8X2."""
+    result = await setup_test(dut)
+    await send_nec8x2_frame(dut, command=0x50)
+
+    assert result.data_valid, "data_valid should pulse for NEC8X2 frame"
+    assert result.address == 0x00, f"Expected address 0x00, got {hex(result.address)}"
+    assert result.command == 0x50, f"Expected command 0x50, got {hex(result.command)}"
+    assert result.protocol_id == PROTO_NEC8X2, f"Expected protocol NEC8X2, got {result.protocol_id}"
 
 
 # ============================================================

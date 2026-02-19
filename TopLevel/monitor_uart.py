@@ -109,7 +109,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="UART monitor with frame sync for "
                     "'A:xx C:yy\\n', 'P:XXXXXXXX A:xx C:yy\\n', "
-                    "'R L:x M:xx.xxx T:x\\n' and legacy 'R L:x W:hhhhh T:x\\n'"
+                    "'R L:x M:xx.xxx T:x\\n' and legacy 'R L:x W:hhhhh T:x\\n'. "
+                    "Works with protocol labels like NEC, SAM32, SAM36, N8X2."
     )
     parser.add_argument("port", nargs="?", help="Serial port (e.g. /dev/ttyUSB1)")
     parser.add_argument("--baud", type=int, default=1000000, help="Baud rate (default: 1000000)")

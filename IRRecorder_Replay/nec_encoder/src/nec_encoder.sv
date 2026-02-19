@@ -38,11 +38,13 @@ module nec_encoder (
   localparam int BIT_MARK_US           = 560;
   localparam int BIT0_SPACE_US         = 560;
   localparam int BIT1_SPACE_US         = 1_690;
+  localparam int BIT1X2_SPACE_US       = 1_030;
   localparam int STOP_MARK_US          = 560;
 
   localparam logic [4:0] PROTO_NEC     = 5'd1;
   localparam logic [4:0] PROTO_SAMSUNG = 5'd8;
   localparam logic [4:0] PROTO_SAMSUNG36 = 5'd9;
+  localparam logic [4:0] PROTO_NEC8X2  = 5'd10;
 
   typedef enum logic [3:0] {
     ST_IDLE,
@@ -181,7 +183,11 @@ module nec_encoder (
           frame_active <= 1'b1;
           busy <= 1'b1;
           if (tick_us) begin
-            space_limit = frame_bit ? BIT1_SPACE_US : BIT0_SPACE_US;
+            if (frame_bit) begin
+              space_limit = (protocol_q == PROTO_NEC8X2) ? BIT1X2_SPACE_US : BIT1_SPACE_US;
+            end else begin
+              space_limit = BIT0_SPACE_US;
+            end
             if (us_cnt_q == space_limit - 1) begin
               us_cnt_q <= '0;
               next_bit_idx = bit_idx_q + 1'b1;

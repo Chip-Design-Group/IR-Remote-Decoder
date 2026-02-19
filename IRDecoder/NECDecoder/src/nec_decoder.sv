@@ -72,6 +72,9 @@ module nec_decoder (
     // Logical 1 Space: 1690µs = 16900 cycles
     localparam BIT1_MIN = 18'd10000;  // 1000 µs
     localparam BIT1_MAX = 18'd24000;  // 2400 µs
+    // NEC-like custom variant: logical 1 around 1.03ms
+    localparam BIT1X2_MIN = 18'd9000;  // 900 µs
+    localparam BIT1X2_MAX = 18'd14000; // 1400 µs
 
     // ========================================================
     // FSM State Definition
@@ -116,10 +119,11 @@ module nec_decoder (
     localparam logic [4:0] PROTO_NEC                  = 5'd1;
     localparam logic [4:0] PROTO_SAMSUNG              = 5'd8;
     localparam logic [4:0] PROTO_SAMSUNG36            = 5'd9;
+    localparam logic [4:0] PROTO_NEC8X2               = 5'd10;
 
     // Pulse classification
     logic is_nec_agc_burst, is_samsung_agc_burst, is_agc_space, is_repeat_space, is_bit_burst;
-    logic is_bit0_space, is_bit1_space;
+    logic is_bit0_space, is_bit1_space, is_bit1x2_space;
     logic is_samsung_split_space;
     logic [4:0] leader_protocol;
     logic [4:0] last_protocol;
@@ -128,6 +132,9 @@ module nec_decoder (
     logic       space_level;
     logic       samsung_split_seen;
     logic       samsung_36bit_complete;
+    logic       nec8x2_one_seen;
+    logic       nec8x2_complete;
+    logic       checksum_nec8x2;
 
     // ========================================================
     // Pulse Classification (combinational)
@@ -140,6 +147,7 @@ module nec_decoder (
         is_bit_burst    = (pulse_width >= BURST_MIN)   && (pulse_width <= BURST_MAX);
         is_bit0_space   = (pulse_width >= BIT0_MIN)    && (pulse_width <= BIT0_MAX);
         is_bit1_space   = (pulse_width >= BIT1_MIN)    && (pulse_width <= BIT1_MAX);
+        is_bit1x2_space = (pulse_width >= BIT1X2_MIN)  && (pulse_width <= BIT1X2_MAX);
         // Samsung36: Sync-Bit = 550µs burst + 4500µs space, appears after 16 addr bits.
         // At this point bit_counter=16, wait_for_space=1 (sync-burst was seen).
         is_samsung_split_space = (leader_protocol == PROTO_SAMSUNG) &&
@@ -161,6 +169,7 @@ module nec_decoder (
     //   shift_reg[27:20] = cmd[7:0]     (bits 20-27)
     //   shift_reg[19:12] = ~cmd[7:0]    (bits 28-35)
     assign samsung_36bit_complete = samsung_split_seen && (bit_counter >= 6'd36);
+    assign nec8x2_complete = nec8x2_one_seen && (bit_counter >= 6'd8);
     assign payload32 = samsung_36bit_complete
                        ? {shift_reg[31:28], shift_reg[27:20], shift_reg[19:12], 8'h00}
                        : shift_reg[47:16];
@@ -180,10 +189,12 @@ module nec_decoder (
                                     ((cmd ^ cmd_inv) == 8'hFF);
     // Samsung36: lenient accept (addr is 16-bit, no inversion check on addr)
     assign checksum_samsung_lenient = (leader_protocol == PROTO_SAMSUNG);
+    assign checksum_nec8x2 = (leader_protocol == PROTO_NEC) && nec8x2_complete;
     assign checksum_ok = checksum_nec_style ||
                          checksum_nec_extended_style ||
                          checksum_samsung_style ||
-                         checksum_samsung_lenient;
+                         checksum_samsung_lenient ||
+                         checksum_nec8x2;
     assign repeat_armed = has_valid_frame && (since_valid_cnt < REPEAT_WINDOW_MAX);
     assign space_level = ~mark_level;
 
@@ -194,6 +205,8 @@ module nec_decoder (
         end else if (leader_protocol == PROTO_NEC) begin
             if (checksum_nec_style || checksum_nec_extended_style) begin
                 classified_protocol = PROTO_NEC;
+            end else if (checksum_nec8x2) begin
+                classified_protocol = PROTO_NEC8X2;
             end
         end
     end
@@ -250,9 +263,14 @@ module nec_decoder (
                 else if (pulse_done) begin
                     if (wait_for_space) begin
                         // Received space → classify bit
-                        if (pulse_level == space_level && (is_bit0_space || is_bit1_space)) begin
+                        if (pulse_level == space_level &&
+                            (is_bit0_space || is_bit1_space || is_bit1x2_space)) begin
                             if ((leader_protocol == PROTO_SAMSUNG) && samsung_split_seen) begin
                                 if (bit_counter == 6'd35)
+                                    next_state = VALIDATE;
+                            end else if ((leader_protocol == PROTO_NEC) &&
+                                         (nec8x2_one_seen || is_bit1x2_space)) begin
+                                if (bit_counter == 6'd7)
                                     next_state = VALIDATE;
                             end else if (bit_counter == 6'd31) begin
                                 next_state = VALIDATE;
@@ -311,6 +329,7 @@ module nec_decoder (
             last_protocol   <= PROTO_UNKNOWN;
             mark_level      <= 1'b0;
             samsung_split_seen <= 1'b0;
+            nec8x2_one_seen <= 1'b0;
         end else begin
             if (has_valid_frame && since_valid_cnt < REPEAT_WINDOW_MAX)
                 since_valid_cnt <= since_valid_cnt + 1'b1;
@@ -321,6 +340,7 @@ module nec_decoder (
                     bit_counter    <= 6'd0;
                     wait_for_space <= 1'b0;
                     samsung_split_seen <= 1'b0;
+                    nec8x2_one_seen <= 1'b0;
                     if (pulse_done) begin
                         mark_level <= pulse_level;
                         if (is_nec_agc_burst)
@@ -346,6 +366,11 @@ module nec_decoder (
                                 shift_reg <= {1'b1, shift_reg[47:1]}; // LSB first
                                 bit_counter <= bit_counter + 1;
                                 wait_for_space <= 1'b0;
+                            end else if (pulse_level == space_level && is_bit1x2_space) begin
+                                shift_reg <= {1'b1, shift_reg[47:1]}; // custom 1-space (1.03ms)
+                                bit_counter <= bit_counter + 1;
+                                wait_for_space <= 1'b0;
+                                nec8x2_one_seen <= 1'b1;
                             end else if (pulse_level == space_level && is_bit0_space) begin
                                 shift_reg <= {1'b0, shift_reg[47:1]}; // LSB first
                                 bit_counter <= bit_counter + 1;
@@ -407,6 +432,12 @@ module nec_decoder (
                         command    <= shift_reg[27:20]; // cmd[7:0]
                         frame_data <= shift_reg;
                         frame_bits <= 6'd36;
+                    end else if (nec8x2_complete) begin
+                        // NEC-like 8-bit frame (LSB-first, no checksum bytes)
+                        address    <= 8'h00;
+                        command    <= shift_reg[47:40];
+                        frame_data <= {40'h0000000000, shift_reg[47:40]};
+                        frame_bits <= 6'd8;
                     end else begin
                         address    <= addr;
                         command    <= cmd;

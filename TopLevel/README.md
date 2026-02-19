@@ -1,6 +1,6 @@
 # IR Recorder Replay TopLevel (`ir_recorder_replay_top`)
 
-This TopLevel connects NEC reception, recording to BRAM, and replay with the IR transmitter.
+This TopLevel connects IR reception (NEC/Samsung/N8X2), recording to BRAM, and replay with the IR transmitter.
 Additionally, each decoded frame is output via UART for the terminal.
 
 ## New Directory Structure
@@ -20,7 +20,7 @@ Used submodules remain in their domain folders:
 ## Purpose
 
 - Receive IR signal (`ir_in`)
-- Decode NEC
+- Decode NEC, Samsung variants, and N8X2
 - Output decoded data as UART text (`uart_tx`)
 - On button press (`record_req`), save last valid code to slot
 - On button press (`replay_req`), transmit stored slot again
@@ -109,7 +109,7 @@ For tests/debug, an external payload stream can be used instead of the internal 
 1. User presses `replay_req` (edge pulse).
 2. `ir_replay_fsm` reads slot `slot_sel` from BRAM.
 3. If `flags[0]=1` (valid), starts `nec_encoder` (`enc_start`).
-4. `nec_encoder` generates the NEC Mark/Space profile.
+4. `nec_encoder` generates the Mark/Space profile for the stored protocol (including N8X2 timing).
 5. `ir_tx` modulates this profile onto 38 kHz carrier.
 6. Carrier appears on `ir_tx_npn_drive` (and `ir_led_out` alias).
 7. When the complete frame is done, `rep_done` pulses.

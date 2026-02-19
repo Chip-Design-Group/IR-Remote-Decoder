@@ -10,7 +10,7 @@ module ir_recorder_replay_chip_top (
   input  logic       ir_in,
   input  logic       record_req,
   input  logic       replay_req,
-  input  logic [2:0] slot_sel,
+  input  logic [5:0] slot_sel,  // [5:4]=remote_id (0..3), [3:0]=slot_num (0..9)
 
   output logic       ir_tx_npn_drive,
   output logic       uart_tx,

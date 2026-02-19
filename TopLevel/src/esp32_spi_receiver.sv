@@ -10,13 +10,13 @@
 //   MSB first, CLK idle LOW, DATA idle LOW.
 //   FPGA samples DATA on rising edge of CLK.
 //
-// Frame format:
-//   Bit [7:5] = slot[2:0]
-//   Bit [4:3] = cmd[1:0]  (01=PLAY, 10=REC)
-//   Bit [2:0] = magic     (always 3'b101 = 3'd5)
+// Frame format (12 bits, MSB first):
+//   Bit [11:6] = slot[5:0]   ([5:4]=remote_id 0..3, [3:0]=slot_num 0..9)
+//   Bit [5:3]  = cmd[2:0]    (001=PLAY, 010=REC)
+//   Bit [2:0]  = magic       (always 3'b101 = 3'd5)
 //
 // Outputs a 1-cycle pulse on replay_req or record_req
-// together with the decoded slot_addr[2:0].
+// together with the decoded slot_addr[5:0].
 //
 // SPI timing:
 //   CLK half-period: 1ms → CLK ~500 Baud
@@ -34,12 +34,12 @@ module esp32_spi_receiver (
     // Decoded outputs (1-cycle pulses)
     output logic       replay_req,
     output logic       record_req,
-    output logic [2:0] slot_addr
+    output logic [5:0] slot_addr   // [5:4]=remote_id (0..3), [3:0]=slot_num (0..9)
 );
 
     localparam logic [2:0] FRAME_MAGIC = 3'b101;
-    localparam logic [1:0] CMD_PLAY    = 2'b01;
-    localparam logic [1:0] CMD_REC     = 2'b10;
+    localparam logic [2:0] CMD_PLAY    = 3'b001;
+    localparam logic [2:0] CMD_REC     = 3'b010;
 
     // --------------------------------------------------------
     // 2-FF Synchronizer for CLK and DATA
@@ -107,29 +107,29 @@ module esp32_spi_receiver (
     end
 
     // --------------------------------------------------------
-    // 8-bit shift register (MSB first)
+    // 12-bit shift register (MSB first)
     // --------------------------------------------------------
-    logic [7:0] shift_reg;
-    logic [2:0] bit_cnt;       // counts 0..7
-    logic       frame_done;
+    logic [11:0] shift_reg;
+    logic [3:0] bit_cnt;       // counts 0..11
+    logic        frame_done;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            shift_reg  <= 8'h00;
-            bit_cnt    <= 3'd0;
+            shift_reg  <= 12'h000;
+            bit_cnt    <= 4'd0;
             frame_done <= 1'b0;
         end else begin
             frame_done <= 1'b0; // default: no frame ready
 
             if (idle_timeout) begin
                 // Re-sync: reset bit counter on long CLK-idle gap
-                bit_cnt <= 3'd0;
+                bit_cnt <= 4'd0;
             end else if (clk_rise) begin
                 // Shift in MSB first
-                shift_reg <= {shift_reg[6:0], dat_sync_1};
+                shift_reg <= {shift_reg[10:0], dat_sync_1};
 
-                if (bit_cnt == 3'd7) begin
-                    bit_cnt    <= 3'd0;
+                if (bit_cnt == 4'd11) begin
+                    bit_cnt    <= 4'd0;
                     frame_done <= 1'b1;
                 end else begin
                     bit_cnt <= bit_cnt + 1'b1;
@@ -141,21 +141,21 @@ module esp32_spi_receiver (
     // --------------------------------------------------------
     // Frame decode and output
     // --------------------------------------------------------
-    // shift_reg after 8 bits:
-    //   [7:5] = slot
-    //   [4:3] = cmd
-    //   [2:0] = magic
+    // shift_reg after 12 bits:
+    //   [11:6] = slot[5:0]  ([5:4]=remote_id, [3:0]=slot_num)
+    //   [5:3]  = cmd[2:0]
+    //   [2:0]  = magic
     // Note: frame_done fires 1 cycle after the last bit was shifted in,
     // so shift_reg already contains the complete frame.
 
-    logic [7:0] frame_reg;
+    logic [11:0] frame_reg;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             replay_req <= 1'b0;
             record_req <= 1'b0;
-            slot_addr  <= 3'd0;
-            frame_reg  <= 8'h00;
+            slot_addr  <= 6'd0;
+            frame_reg  <= 12'h000;
         end else begin
             replay_req <= 1'b0;
             record_req <= 1'b0;
@@ -164,9 +164,9 @@ module esp32_spi_receiver (
                 frame_reg <= shift_reg;
 
                 if (shift_reg[2:0] == FRAME_MAGIC) begin
-                    slot_addr <= shift_reg[7:5];
+                    slot_addr <= shift_reg[11:6];
 
-                    case (shift_reg[4:3])
+                    case (shift_reg[5:3])
                         CMD_PLAY: replay_req <= 1'b1;
                         CMD_REC:  record_req <= 1'b1;
                         default:  ;
