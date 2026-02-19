@@ -40,6 +40,7 @@ module ir_recorder_replay_chip_top (
   logic combined_record_req;
   logic combined_replay_req;
   logic [5:0] combined_slot_sel;
+  logic [5:0] esp_slot_addr_lat;
 
   esp32_spi_receiver u_esp32_spi (
     .clk        (clk),
