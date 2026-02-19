@@ -16,6 +16,18 @@ This repository contains the complete source code for a hardware-based Infrared 
 
 ![Supported Remotes](docs/images/supported_remotes.jpeg)
 
+The decoder core supports multiple variants of the pulse-distance protocol:
+
+1.  **NEC Standard** (e.g. standard TV remotes, Arduino kits)
+    *   Carrier: 38 kHz
+    *   Leader: 9ms Mark, 4.5ms Space
+    *   32-bit payload (Address + Command)
+2.  **Samsung** (Variant of NEC)
+    *   Different timing for leader and data bits
+3.  **N8X2** (Common RGB LED Strip Controllers)
+    *   Shorter timings than standard NEC
+    *   Often found with 24-key or 44-key remotes
+
 ## 📂 Structure
 
 The project is modular. Each module resides in its own subdirectory with source code, tests, and documentation.
