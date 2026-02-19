@@ -20,9 +20,46 @@ from cocotb_tools.runner import get_runner
 CLK_PERIOD_NS = 10
 
 
-def pack_ir_word(address, command, flags):
-    """Packt {address[31:16], command[15:8], flags[7:0]}."""
-    return ((address & 0xFFFF) << 16) | ((command & 0xFF) << 8) | (flags & 0xFF)
+IR_FLAG_WIDTH = 8
+IR_FRAME_BITS_WIDTH = 6
+IR_PROTOCOL_ID_WIDTH = 5
+PROTOCOL_SHIFT = IR_FLAG_WIDTH
+FRAME_BITS_SHIFT = PROTOCOL_SHIFT + IR_PROTOCOL_ID_WIDTH
+FRAME_DATA_SHIFT = FRAME_BITS_SHIFT + IR_FRAME_BITS_WIDTH
+
+def _build_frame_data(address, command):
+    addr = address & 0xFF
+    cmd = command & 0xFF
+    return (((~cmd & 0xFF) << 24) |
+            (cmd << 16) |
+            ((~addr & 0xFF) << 8) |
+            addr)
+
+
+def pack_ir_word(address, command, flags, protocol_id=0x01, frame_bits=32):
+    """Packt das neue IR-Wortformat inklusive frame_data/protocol_id/flags."""
+    frame_data = _build_frame_data(address, command) & ((1 << 32) - 1)
+    return pack_word_from_fields(frame_data, frame_bits, protocol_id, flags)
+
+
+def pack_word_from_fields(frame_data, frame_bits, protocol_id, flags):
+    return ((frame_data << FRAME_DATA_SHIFT) |
+            ((frame_bits & ((1 << IR_FRAME_BITS_WIDTH) - 1)) << FRAME_BITS_SHIFT) |
+            ((protocol_id & ((1 << IR_PROTOCOL_ID_WIDTH) - 1)) << PROTOCOL_SHIFT) |
+            (flags & 0xFF))
+
+
+def map_sam36_expected(frame_data_raw):
+    mapped = 0
+    for idx in range(8):
+        mapped |= (((frame_data_raw >> (12 + idx)) & 1) << idx)
+    for idx in range(8):
+        mapped |= (((frame_data_raw >> (20 + idx)) & 1) << (8 + idx))
+    for idx in range(4):
+        mapped |= (((frame_data_raw >> (28 + idx)) & 1) << (16 + idx))
+    for idx in range(16):
+        mapped |= (((frame_data_raw >> (32 + idx)) & 1) << (20 + idx))
+    return mapped
 
 
 async def reset_dut(dut):
@@ -130,6 +167,34 @@ async def test_replay_waits_for_encoder_ready(dut):
 
     await wait_for_signal_pulse(dut, "done")
     assert int(dut.error.value) == 0, "Nach erfolgreichem Start darf error nicht aktiv sein"
+
+
+@cocotb.test()
+async def test_replay_sam36_payload_is_mapped_for_encoder(dut):
+    """Samsung36 frame_data muss vor Encoder-Start in serielle Reihenfolge gemappt werden."""
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
+    await reset_dut(dut)
+
+    # Raw SAM36 layout from decoder:
+    # [47:32]=addr16, [31:28]=id, [27:20]=cmd, [19:12]=~cmd
+    frame_data_raw = ((0x8877 & 0xFFFF) << 32) | ((0x0 & 0xF) << 28) | ((0x0F & 0xFF) << 20) | ((0xF0 & 0xFF) << 12)
+    flags = 0x01
+    sam36_proto = 0x09
+    frame_bits = 36
+    word = pack_word_from_fields(frame_data_raw, frame_bits, sam36_proto, flags)
+
+    dut.enc_ready.value = 1
+    dut.tx_ready.value = 1
+
+    await start_replay(dut, 0)
+    await RisingEdge(dut.clk)
+    await respond_memory_read(dut, word)
+
+    await wait_for_signal_pulse(dut, "enc_start")
+    expected_frame_data = map_sam36_expected(frame_data_raw)
+    expected_enc_payload = pack_word_from_fields(expected_frame_data, frame_bits, sam36_proto, flags)
+    assert int(dut.enc_payload.value) == expected_enc_payload, "SAM36 payload muss fuer den Encoder umgeordnet werden"
+    assert int(dut.error.value) == 0, "SAM36 Pfad darf keinen Fehler ausloesen"
 
 
 def test_replay_fsm_runner():

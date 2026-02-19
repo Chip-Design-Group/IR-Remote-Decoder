@@ -2,7 +2,7 @@
 
 ## Was macht `ir_storage_bram`?
 `ir_storage_bram` ist der interne Speicherblock fuer aufgezeichnete IR-Codes.
-Er speichert pro Slot ein 32-Bit-Wort (`ir_word_t`) und trennt sauber zwischen:
+Er speichert pro Slot ein 67-Bit-Wort (`ir_word_t`) mit `{frame_data[47:0], frame_bits[5:0], protocol_id[4:0], flags[7:0]}` und trennt sauber zwischen:
 
 - **Schreiben (Record-Pfad)**: `wr_en`, `wr_addr`, `wr_data`
 - **Lesen (Replay-Pfad)**: `rd_en`, `rd_addr` -> `rd_data`, `rd_valid`
@@ -29,10 +29,10 @@ flowchart TD
 ## Signale kurz erklaert
 - `wr_en`: Schreibfreigabe.
 - `wr_addr`: Zielslot fuer den Write.
-- `wr_data`: 32-Bit IR-Wort, das gespeichert wird.
+- `wr_data`: 67-Bit IR-Wort (frame_data + Metadata), das gespeichert wird.
 - `rd_en`: Lesefreigabe.
 - `rd_addr`: Quellslot fuer den Read.
-- `rd_data`: Ausgelesenes 32-Bit IR-Wort.
+- `rd_data`: Ausgelesenes 67-Bit IR-Wort.
 - `rd_valid`: Zeigt an, dass `rd_data` gueltig ist (typisch 1 Takt).
 
 ## Warum ist das wichtig im Recorder/Replay-System?

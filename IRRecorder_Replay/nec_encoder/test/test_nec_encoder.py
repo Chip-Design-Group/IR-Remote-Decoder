@@ -16,6 +16,31 @@ from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, RisingEdge
 from cocotb_tools.runner import get_runner
 
+IR_FLAG_WIDTH = 8
+IR_FRAME_BITS_WIDTH = 6
+IR_PROTOCOL_ID_WIDTH = 5
+PROTOCOL_SHIFT = IR_FLAG_WIDTH
+FRAME_BITS_SHIFT = PROTOCOL_SHIFT + IR_PROTOCOL_ID_WIDTH
+FRAME_DATA_SHIFT = FRAME_BITS_SHIFT + IR_FRAME_BITS_WIDTH
+
+
+def _build_frame_data(address, command):
+    addr = address & 0xFF
+    cmd = command & 0xFF
+    return (((~cmd & 0xFF) << 24) |
+            (cmd << 16) |
+            ((~addr & 0xFF) << 8) |
+            addr)
+
+
+def pack_payload(address, command, flags, protocol_id=0x01, frame_bits=32):
+    frame_data = _build_frame_data(address, command) & ((1 << 32) - 1)
+    word = ((frame_data << FRAME_DATA_SHIFT) |
+            ((frame_bits & ((1 << IR_FRAME_BITS_WIDTH) - 1)) << FRAME_BITS_SHIFT) |
+            ((protocol_id & ((1 << IR_PROTOCOL_ID_WIDTH) - 1)) << PROTOCOL_SHIFT) |
+            (flags & 0xFF))
+    return word
+
 
 @cocotb.test()
 async def test_encoder_emits_full_nec_frame(dut):
@@ -30,7 +55,7 @@ async def test_encoder_emits_full_nec_frame(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 2)
 
-    payload = ((0x00FF & 0xFFFF) << 16) | ((0x34 & 0xFF) << 8) | 0x01
+    payload = pack_payload(0x00FF, 0x34, 0x01)
     dut.payload.value = payload
     dut.start.value = 1
     await RisingEdge(dut.clk)
@@ -75,7 +100,7 @@ async def test_encoder_repeat_flag_behavior(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 2)
 
-    payload_repeat = ((0x1234 & 0xFFFF) << 16) | ((0x56 & 0xFF) << 8) | 0x03
+    payload_repeat = pack_payload(0x1234, 0x56, 0x03)
     dut.payload.value = payload_repeat
     dut.start.value = 1
     await RisingEdge(dut.clk)

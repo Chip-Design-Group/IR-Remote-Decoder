@@ -1,6 +1,6 @@
 # NEC Decoder
 
-Dekodiert NEC-Infrarot-Fernbedienungssignale. Empfängt Puls-Messungen vom `ir_pulse_timer` und gibt Address, Command und Status-Signale aus.
+Dekodiert NEC-, Samsung32- und Samsung36-Infrarot-Fernbedienungssignale. Empfängt Puls-Messungen vom `ir_pulse_timer` und gibt Address, Command, Protokoll-ID sowie Status-Signale aus.
 
 ## Blockdiagramm
 
@@ -70,6 +70,7 @@ Fallback (falls Mermaid im Viewer deaktiviert ist): `doc/blockdiagram.svg`
 | `decode_error` | 1 | Checksum-Fehler (1-Takt-Puls) | LED |
 | `address` | 8 | Dekodierte Adresse | `output_formatter` |
 | `command` | 8 | Dekodierter Befehl | `output_formatter` |
+| `protocol_id` | 5 | Erkannter Protokoll-Typ (`NEC/SAM32/SAM36`) | `output_formatter` |
 | `receiving` | 1 | Aktiver Empfang (Dauer-Signal) | LED |
 
 ## NEC Protokoll
@@ -93,6 +94,28 @@ Repeat Code (Taste gehalten):
             2.25 ms
              Space
 ```
+
+## Samsung Protokoll (unterstuetzt)
+
+Samsung wird wie NEC mit 32 Datenbits (LSB first) und identischem Bit-Timing dekodiert, aber mit anderem Leader:
+
+```
+Samsung Frame:
+┌──────────┐          ┌──┐   ┌──┐     ┌──┐
+│ AGC Burst│          │  │   │  │ ... │  │
+│  4.5 ms  │          │  │   │  │     │  │
+└──────────┘──────────┘  └───┘  └─────┘  └──
+             4.5 ms     32 Datenbits    Stop
+              Space     (Burst+Space)
+```
+
+## Protokoll-Klassifizierung
+
+Der Decoder validiert NEC/Samsung Bit-Timings und klassifiziert danach:
+
+- `protocol_id = 1`: `NEC` (8-bit Adresse + invertierte Adresse; NEC-16-Adressen werden ebenfalls als NEC akzeptiert)
+- `protocol_id = 8`: `SAM32` (Samsung-32 mit 16-bit Adresse + 16-bit Command)
+- `protocol_id = 9`: `SAM36` (Samsung-36 mit 16-bit Adresse, 4-bit ID und 8-bit Command)
 
 ### Bit-Kodierung (Pulse Position Modulation)
 
@@ -138,6 +161,8 @@ stateDiagram-v2
     DATA --> IDLE: invalid / timeout
 
     VALIDATE --> IDLE: checksum ok -> data_valid / else decode_error
+    note right of VALIDATE: leader=NEC → protocol_id=NEC
+    note right of VALIDATE: leader=Samsung → protocol_id=SAM32 (default) / SAM36 (split space)
 
     REPEAT_WAIT_STOP --> REPEAT_EMIT: final 560us burst
     REPEAT_WAIT_STOP --> IDLE: invalid / timeout
@@ -155,6 +180,7 @@ Aktuelle Zustände im RTL:
 - `VALIDATE`
 - `REPEAT_WAIT_STOP` (Repeat-Space erkannt, warte auf finalen 560µs Burst)
 - `REPEAT_EMIT` (erneute Ausgabe des letzten gültigen Frames)
+- Protokoll-ID nach VALIDATE: `NEC` wenn NEC-Leader, ansonsten `SAM32`/`SAM36` je nachdem ob der Split-Space gesehen wurde.
 
 ## Timing-Konstanten
 
@@ -162,7 +188,8 @@ Alle Werte in **Clock-Zyklen @ 10 MHz** mit ±20% Toleranz:
 
 | Puls | Dauer | Zyklen | Min | Max |
 |------|-------|--------|-----|-----|
-| AGC Burst | 9.0 ms | 90.000 | 72.000 | 108.000 |
+| NEC AGC Burst | 9.0 ms | 90.000 | 72.000 | 108.000 |
+| Samsung AGC Burst | 4.5 ms | 45.000 | 36.000 | 54.000 |
 | AGC Space | 4.5 ms | 45.000 | 36.000 | 54.000 |
 | Repeat Space | 2.25 ms | 22.500 | 18.000 | 27.000 |
 | Bit Burst | 560 µs | 5.600 | 4.480 | 6.720 |
@@ -176,7 +203,7 @@ Zusätzliche Repeat-Gating-Regel:
 
 ## Tests
 
-15 CocoTB Tests in `test/test_nec_decoder.py`:
+16 CocoTB Tests in `test/test_nec_decoder.py`:
 
 ```bash
 cd NECDecoder && make test
@@ -190,6 +217,8 @@ cd NECDecoder && make test
 | `test_timeout_during_data` | Timeout → zurück zu IDLE |
 | `test_receiving_signal` | LED-Signal während Empfang |
 | `test_two_consecutive_frames` | Zwei Frames hintereinander |
+| `test_decode_valid_samsung_frame*` | Dekodiert Samsung32/Samsung36 (inkl. ID/Command-Aufteilung) |
+| `test_decode_samsung_split_space_frame` | Bestätigt das Samsung36-Split-Leader-Verhalten |
 | `test_data_valid_is_pulse` | `data_valid` nur 1 Takt lang |
 | `test_recovery_after_error` | Fehler → neues Frame OK |
 | `test_repeat_after_valid_frame` | Repeat nach gültigem Frame |
