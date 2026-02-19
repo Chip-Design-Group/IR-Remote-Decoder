@@ -17,6 +17,7 @@ VERILOG_FILES:
   - dir::../../IRRecorder_Replay/Replay_FSM/src/ir_replay_fsm.sv
   - dir::../../IRRecorder_Replay/nec_encoder/src/nec_encoder.sv
   - dir::../../IRRecorder_Replay/TX/src/ir_tx.sv
+  - dir::raw_pulse_uart_formatter.sv
   - dir::ir_recorder_replay_top.sv
   - dir::ir_recorder_replay_chip_top.sv
   - dir::ir_recorder_replay_padframe_top.sv
@@ -28,7 +29,7 @@ SIGNOFF_SDC_FILE: dir::constraints/signoff.sdc
 
 FP_SIZING: absolute
 DIE_AREA: [0, 0, 1400, 1400]
-CORE_AREA: [358.0, 358.0, 1042.0, 1042.0]
+CORE_AREA: [358.08, 359.1, 1041.6, 1039.5]
 
 VDD_NETS: ["VDD"]
 GND_NETS: ["VSS"]
