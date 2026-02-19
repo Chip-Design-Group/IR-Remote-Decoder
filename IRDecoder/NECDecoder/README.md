@@ -1,6 +1,6 @@
 # NEC Decoder
 
-Dekodiert NEC- und Samsung-Infrarot-Fernbedienungssignale (NEC, Sam32/Sam36). Empfängt Puls-Messungen vom `ir_pulse_timer` und gibt Address, Command, Protokoll-ID und Status-Signale aus.
+Dekodiert NEC-, Samsung32- und Samsung36-Infrarot-Fernbedienungssignale. Empfängt Puls-Messungen vom `ir_pulse_timer` und gibt Address, Command, Protokoll-ID sowie Status-Signale aus.
 
 ## Blockdiagramm
 
@@ -217,6 +217,8 @@ cd NECDecoder && make test
 | `test_timeout_during_data` | Timeout → zurück zu IDLE |
 | `test_receiving_signal` | LED-Signal während Empfang |
 | `test_two_consecutive_frames` | Zwei Frames hintereinander |
+| `test_decode_valid_samsung_frame*` | Dekodiert Samsung32/Samsung36 (inkl. ID/Command-Aufteilung) |
+| `test_decode_samsung_split_space_frame` | Bestätigt das Samsung36-Split-Leader-Verhalten |
 | `test_data_valid_is_pulse` | `data_valid` nur 1 Takt lang |
 | `test_recovery_after_error` | Fehler → neues Frame OK |
 | `test_repeat_after_valid_frame` | Repeat nach gültigem Frame |
