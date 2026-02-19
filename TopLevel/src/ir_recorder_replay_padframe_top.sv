@@ -32,6 +32,14 @@ module ir_recorder_replay_padframe_top (
   wire core_valid;
   wire core_recording;
 
+  // Dedicated supply pads for core and IO domains.
+  // Intentionally left with implicit/unconnected PG pins for synthesis-model
+  // compatibility (some IO Verilog views omit explicit iovdd/iovss/vdd/vss ports).
+  sg13g2_IOPadVdd   u_vdd_pad   ();
+  sg13g2_IOPadVss   u_vss_pad   ();
+  sg13g2_IOPadIOVdd u_iovdd_pad ();
+  sg13g2_IOPadIOVss u_iovss_pad ();
+
   // Inputs
   sg13g2_IOPadIn u_pad_clk        (.pad(io_clk_pad),        .p2c(core_clk));
   sg13g2_IOPadIn u_pad_rst_n      (.pad(io_rst_n_pad),      .p2c(core_rst_n));
