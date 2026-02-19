@@ -17,6 +17,7 @@ VERILOG_FILES:
   - dir::../../IRRecorder_Replay/Replay_FSM/src/ir_replay_fsm.sv
   - dir::../../IRRecorder_Replay/nec_encoder/src/nec_encoder.sv
   - dir::../../IRRecorder_Replay/TX/src/ir_tx.sv
+  - dir::esp32_spi_receiver.sv
   - dir::raw_pulse_uart_formatter.sv
   - dir::ir_recorder_replay_top.sv
   - dir::ir_recorder_replay_chip_top.sv
@@ -28,8 +29,9 @@ PNR_SDC_FILE: dir::constraints/pnr.sdc
 SIGNOFF_SDC_FILE: dir::constraints/signoff.sdc
 
 FP_SIZING: absolute
-DIE_AREA: [0, 0, 1400, 1400]
-CORE_AREA: [358.08, 359.1, 1041.6, 1039.5]
+DIE_AREA: [0, 0, 1340, 1340]
+CORE_AREA: [342.74, 343.71, 997.52, 994.95]
+
 
 VDD_NETS: ["VDD"]
 GND_NETS: ["VSS"]
@@ -61,8 +63,16 @@ PAD_BONDPAD_NAME: bondpad_70x70
 EXTRA_GDS: dir::../bondpad/bondpad_70x70.gds
 EXTRA_LEFS: dir::../bondpad/bondpad_70x70.lef
 
-PL_TARGET_DENSITY_PCT: 40
-GPL_CELL_PADDING: 2
+PL_TARGET_DENSITY_PCT: 35
+GPL_CELL_PADDING: 4
+GRT_OVERFLOW_ITERS: 200
+DRT_OPT_ITERS: 64
+GRT_ANTENNA_REPAIR_ITERS: 6
+GRT_ANTENNA_REPAIR_MARGIN: 20
+MAX_FANOUT_CONSTRAINT: 8
+SYNTH_BUFFER_CELL: "sg13g2_buf_4/A/X"
+GRT_RESIZER_SETUP_MAX_BUFFER_PCT: 80
+GRT_RESIZER_HOLD_MAX_BUFFER_PCT: 80
 ERROR_ON_SYNTH_CHECKS: true
 WIRE_LENGTH_THRESHOLD: 2000
 
@@ -70,13 +80,10 @@ PAD_WEST:
   - u_pad_clk
   - u_pad_rst_n
   - u_pad_ir_in
-  - u_pad_record_req
+  - u_pad_spi_clk
+  - u_pad_spi_data
 
-PAD_SOUTH:
-  - u_pad_replay_req
-  - u_pad_slot_sel_0
-  - u_pad_slot_sel_1
-  - u_pad_slot_sel_2
+PAD_SOUTH: []
 
 PAD_EAST:
   - u_pad_ir_tx_npn_drive
@@ -91,6 +98,15 @@ PAD_PLACE_IO_TERMINALS:
   - "bondpad_70x70/pad"
 
 IGNORE_DISCONNECTED_MODULES:
-  - ir_recorder_replay_padframe_top
+  - IO_BOND_u_pad_clk
+  - IO_BOND_u_pad_rst_n
+  - IO_BOND_u_pad_ir_in
+  - IO_BOND_u_pad_spi_clk
+  - IO_BOND_u_pad_spi_data
+  - IO_BOND_u_pad_ir_tx_npn_drive
+  - IO_BOND_u_pad_uart_tx
+  - IO_BOND_u_pad_receiving
+  - IO_BOND_u_pad_valid
+  - IO_BOND_u_pad_recording
 
-ERROR_ON_DISCONNECTED_PINS: false
+ERROR_ON_DISCONNECTED_PINS: true
