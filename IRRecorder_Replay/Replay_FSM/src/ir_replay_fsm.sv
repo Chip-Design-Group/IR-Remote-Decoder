@@ -62,8 +62,11 @@ module ir_replay_fsm #(
   ir_word_t                  word_q, word_d;
   ir_payload_t               payload_q, payload_d;
 
-  // Samsung36 stores semantic fields in frame_data[47:12]; encoder expects
-  // contiguous serial bits in frame_data[35:0] (LSB-first per field).
+  // Samsung36 is stored in semantic form:
+  //   [47:32]=addr16, [31:28]=id4, [27:20]=cmd8, [19:12]=~cmd8
+  // The encoder consumes payload.frame_data[bit_idx] with bit_idx rising from 0.
+  // To recreate the original wire order for this decoder, bits must be:
+  //   [7:0]=~cmd, [15:8]=cmd, [19:16]=id, [35:20]=addr.
   function automatic logic [IR_FRAME_DATA_WIDTH-1:0] map_sam36_frame_data(
     input logic [IR_FRAME_DATA_WIDTH-1:0] raw_src,
     input logic [IR_FRAME_BITS_WIDTH-1:0] bits
@@ -72,10 +75,10 @@ module ir_replay_fsm #(
     begin
       result = '0;
       if (bits >= 6'd36) begin
-        for (int idx = 0; idx < 16; idx++) result[idx]      = raw_src[32 + idx];
+        for (int idx = 0; idx < 8; idx++)  result[idx]      = raw_src[12 + idx];
+        for (int idx = 0; idx < 8; idx++)  result[8 + idx]  = raw_src[20 + idx];
         for (int idx = 0; idx < 4; idx++)  result[16 + idx] = raw_src[28 + idx];
-        for (int idx = 0; idx < 8; idx++)  result[20 + idx] = raw_src[20 + idx];
-        for (int idx = 0; idx < 8; idx++)  result[28 + idx] = raw_src[12 + idx];
+        for (int idx = 0; idx < 16; idx++) result[20 + idx] = raw_src[32 + idx];
       end
       return result;
     end

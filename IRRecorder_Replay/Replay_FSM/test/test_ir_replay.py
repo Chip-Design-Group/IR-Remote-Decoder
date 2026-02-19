@@ -51,14 +51,14 @@ def pack_word_from_fields(frame_data, frame_bits, protocol_id, flags):
 
 def map_sam36_expected(frame_data_raw):
     mapped = 0
-    for idx in range(16):
-        mapped |= (((frame_data_raw >> (32 + idx)) & 1) << idx)
+    for idx in range(8):
+        mapped |= (((frame_data_raw >> (12 + idx)) & 1) << idx)
+    for idx in range(8):
+        mapped |= (((frame_data_raw >> (20 + idx)) & 1) << (8 + idx))
     for idx in range(4):
         mapped |= (((frame_data_raw >> (28 + idx)) & 1) << (16 + idx))
-    for idx in range(8):
-        mapped |= (((frame_data_raw >> (20 + idx)) & 1) << (20 + idx))
-    for idx in range(8):
-        mapped |= (((frame_data_raw >> (12 + idx)) & 1) << (28 + idx))
+    for idx in range(16):
+        mapped |= (((frame_data_raw >> (32 + idx)) & 1) << (20 + idx))
     return mapped
 
 
