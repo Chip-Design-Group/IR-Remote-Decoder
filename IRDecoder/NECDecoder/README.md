@@ -1,6 +1,6 @@
 # NEC Decoder
 
-Dekodiert NEC-, Samsung32- und Samsung36-Infrarot-Fernbedienungssignale. Empfängt Puls-Messungen vom `ir_pulse_timer` und gibt Address, Command, Protokoll-ID sowie Status-Signale aus.
+Dekodiert NEC-, Samsung32-, Samsung36- und NEC-aehnliche N8X2-Infrarot-Fernbedienungssignale. Empfaengt Puls-Messungen vom `ir_pulse_timer` und gibt Address, Command, Protokoll-ID sowie Status-Signale aus.
 
 ## Blockdiagramm
 
@@ -70,7 +70,7 @@ Fallback (falls Mermaid im Viewer deaktiviert ist): `doc/blockdiagram.svg`
 | `decode_error` | 1 | Checksum-Fehler (1-Takt-Puls) | LED |
 | `address` | 8 | Dekodierte Adresse | `output_formatter` |
 | `command` | 8 | Dekodierter Befehl | `output_formatter` |
-| `protocol_id` | 5 | Erkannter Protokoll-Typ (`NEC/SAM32/SAM36`) | `output_formatter` |
+| `protocol_id` | 5 | Erkannter Protokoll-Typ (`NEC/SAM32/SAM36/N8X2`) | `output_formatter` |
 | `receiving` | 1 | Aktiver Empfang (Dauer-Signal) | LED |
 
 ## NEC Protokoll
@@ -116,6 +116,7 @@ Der Decoder validiert NEC/Samsung Bit-Timings und klassifiziert danach:
 - `protocol_id = 1`: `NEC` (8-bit Adresse + invertierte Adresse; NEC-16-Adressen werden ebenfalls als NEC akzeptiert)
 - `protocol_id = 8`: `SAM32` (Samsung-32 mit 16-bit Adresse + 16-bit Command)
 - `protocol_id = 9`: `SAM36` (Samsung-36 mit 16-bit Adresse, 4-bit ID und 8-bit Command)
+- `protocol_id = 10`: `N8X2` (NEC-aehnlicher Leader, 8 Datenbits, `0=~560us`, `1=~1030us`)
 
 ### Bit-Kodierung (Pulse Position Modulation)
 
@@ -128,6 +129,8 @@ Logische 0:                    Logische 1:
         560µs                          1690µs
         Space                          Space
 ```
+
+N8X2 verwendet denselben Leader wie NEC (`~9ms + ~4.5ms`) und denselben Burst (`~560us`), aber fuer logische `1` eine kuerzere Space-Dauer von ca. `1030us` statt `1690us`. Das Datenfeld umfasst 8 Bits (LSB first).
 
 ### Datenformat (32 Bit, LSB first)
 
@@ -195,6 +198,7 @@ Alle Werte in **Clock-Zyklen @ 10 MHz** mit ±20% Toleranz:
 | Bit Burst | 560 µs | 5.600 | 4.480 | 6.720 |
 | Bit 0 Space | 560 µs | 5.600 | 4.480 | 6.720 |
 | Bit 1 Space | 1.69 ms | 16.900 | 13.520 | 20.280 |
+| Bit 1 Space (N8X2) | 1.03 ms | 10.300 | 9.000 | 14.000 |
 
 Zusätzliche Repeat-Gating-Regel:
 - Repeat wird nur akzeptiert, wenn zuvor mindestens ein gültiges Vollframe dekodiert wurde.
@@ -203,7 +207,7 @@ Zusätzliche Repeat-Gating-Regel:
 
 ## Tests
 
-16 CocoTB Tests in `test/test_nec_decoder.py`:
+17 CocoTB Tests in `test/test_nec_decoder.py`:
 
 ```bash
 cd NECDecoder && make test
@@ -219,6 +223,7 @@ cd NECDecoder && make test
 | `test_two_consecutive_frames` | Zwei Frames hintereinander |
 | `test_decode_valid_samsung_frame*` | Dekodiert Samsung32/Samsung36 (inkl. ID/Command-Aufteilung) |
 | `test_decode_samsung_split_space_frame` | Bestätigt das Samsung36-Split-Leader-Verhalten |
+| `test_decode_nec8x2_frame` | Bestätigt das NEC-aehnliche N8X2-Protokoll (8 Bit, 1.03ms-`1`) |
 | `test_data_valid_is_pulse` | `data_valid` nur 1 Takt lang |
 | `test_recovery_after_error` | Fehler → neues Frame OK |
 | `test_repeat_after_valid_frame` | Repeat nach gültigem Frame |

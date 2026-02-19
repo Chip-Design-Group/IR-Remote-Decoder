@@ -109,6 +109,8 @@ def protocol_label(protocol_id):
         return "SAM32   "
     if protocol_id == 9:
         return "SAM48   "
+    if protocol_id == 10:
+        return "N8X2    "
     return "UNK     "
 
 
@@ -392,6 +394,16 @@ async def test_apple_protocol_prefix(dut):
     result = await collect_bytes(dut, FRAME_LEN_STD)
     output = bytes_to_str(result)
     assert output == expected_standard(0xEE, 0x50, protocol_id=3), f"Unexpected output {output!r}"
+
+
+@cocotb.test()
+async def test_nec8x2_protocol_prefix(dut):
+    """Protocol label should switch to N8X2 for protocol_id=10."""
+    await setup(dut)
+    await trigger_valid(dut, address=0x00, command=0x50, protocol_id=10)
+    result = await collect_bytes(dut, FRAME_LEN_STD)
+    output = bytes_to_str(result)
+    assert output == expected_standard(0x00, 0x50, protocol_id=10), f"Unexpected output {output!r}"
 
 
 @cocotb.test()

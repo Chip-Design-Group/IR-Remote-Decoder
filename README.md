@@ -6,7 +6,7 @@ This repository contains the complete source code for a hardware-based Infrared 
 
 ## 🚀 Features
 
-- **Full Hardware Decoding** of the NEC Infrared Protocol.
+- **Full Hardware Decoding** of NEC, Samsung variants, and NEC-like N8X2 IR protocols.
 - **Micro-UART** for data output to a PC.
 - **Modular Design** with cleanly separated components.
 - **Comprehensive Test Suite** based on Python and CocoTB.
@@ -43,4 +43,3 @@ This runs hundreds of tests across all modules, from simple unit tests to comple
 ## 📝 License
 
 This project is Open Source. Feel free to fork it, improve it, and send Pull Requests!
-

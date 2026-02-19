@@ -53,6 +53,7 @@ module output_formatter (
 
     localparam logic [4:0] PROTO_SAMSUNG = 5'd8;
     localparam logic [4:0] PROTO_SAMSUNG36 = 5'd9;
+    localparam logic [4:0] PROTO_NEC8X2 = 5'd10;
 
     // Buffered inputs
     logic [7:0]  address_reg, command_reg;
@@ -119,6 +120,15 @@ module output_formatter (
                     3'd2: protocol_char = "M";
                     3'd3: protocol_char = "3";
                     3'd4: protocol_char = "6";
+                    default: protocol_char = " ";
+                endcase
+            end
+            PROTO_NEC8X2: begin
+                case (idx)
+                    3'd0: protocol_char = "N";
+                    3'd1: protocol_char = "8";
+                    3'd2: protocol_char = "X";
+                    3'd3: protocol_char = "2";
                     default: protocol_char = " ";
                 endcase
             end
