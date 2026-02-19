@@ -13,8 +13,28 @@ from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, NextTimeStep, ReadOnly, RisingEdge
 
 
-def _pack_payload(address, command, flags):
-    return ((address & 0xFFFF) << 16) | ((command & 0xFF) << 8) | (flags & 0xFF)
+IR_FLAG_WIDTH = 8
+IR_FRAME_BITS_WIDTH = 6
+IR_PROTOCOL_ID_WIDTH = 5
+FRAME_BITS_SHIFT = IR_FLAG_WIDTH
+PROTOCOL_SHIFT = FRAME_BITS_SHIFT + IR_FRAME_BITS_WIDTH
+FRAME_DATA_SHIFT = PROTOCOL_SHIFT + IR_PROTOCOL_ID_WIDTH
+
+def _build_frame_data(address, command):
+    addr = address & 0xFF
+    cmd = command & 0xFF
+    return (((~cmd & 0xFF) << 24) |
+            (cmd << 16) |
+            ((~addr & 0xFF) << 8) |
+            addr)
+
+def _pack_payload(address, command, flags, protocol_id=0x01, frame_bits=32):
+    frame_data = _build_frame_data(address, command) & ((1 << 32) - 1)
+    word = ((frame_data << FRAME_DATA_SHIFT) |
+            ((frame_bits & ((1 << IR_FRAME_BITS_WIDTH) - 1)) << PROTOCOL_SHIFT) |
+            ((protocol_id & ((1 << IR_PROTOCOL_ID_WIDTH) - 1)) << FRAME_BITS_SHIFT) |
+            (flags & 0xFF))
+    return word
 
 
 async def _start_clock(dut):

@@ -6,7 +6,7 @@
 Kurz gesagt:
 - wartet auf einen Record-Request (`record_req`),
 - uebernimmt bei gueltigen Decoder-Daten (`dec_valid`) den Payload,
-- packt den Payload zu einem 32-Bit-Wort (`ir_pack_word(dec_payload)`),
+- packt den Payload zu einem 67-Bit-Wort (`ir_pack_word(dec_payload)`), das `frame_data`, `frame_bits`, `protocol_id` und `flags` enthält,
 - schreibt das Wort in den Zielslot (`target_slot`) ueber `mem_wr_*`.
 
 Statussignale:

@@ -17,6 +17,8 @@
 
 `timescale 1ns/1ps
 
+import ir_types_pkg::*;
+
 module ir_replay_fsm #(
   parameter int SLOT_COUNT = ir_types_pkg::IR_SLOT_COUNT
 ) (
@@ -27,12 +29,12 @@ module ir_replay_fsm #(
   input  logic [2:0]            target_slot,
 
   output logic                  mem_rd_en,
-  output logic [2:0]            mem_rd_addr,
-  input  logic [31:0]           mem_rd_data,
+  output ir_slot_t              mem_rd_addr,
+  input  ir_word_t               mem_rd_data,
   input  logic                  mem_rd_valid,
 
   output logic                  enc_start,
-  output logic [31:0]           enc_payload,
+  output ir_payload_t            enc_payload,
   input  logic                  enc_ready,
   input  logic                  tx_ready,
 
@@ -56,8 +58,8 @@ module ir_replay_fsm #(
   logic replay_req_rise;
 
   logic [2:0]               slot_q, slot_d;
-  logic [31:0]              word_q, word_d;
-  logic [31:0]              payload_q, payload_d;
+  ir_word_t                  word_q, word_d;
+  ir_payload_t               payload_q, payload_d;
 
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -97,14 +99,17 @@ module ir_replay_fsm #(
 
       ST_READ_WAIT: begin
         if (mem_rd_valid) begin
-          word_d  = mem_rd_data;
+          word_d = mem_rd_data;
+          payload_d.frame_data = mem_rd_data[IR_FRAME_DATA_MSB:IR_FRAME_DATA_LSB];
+          payload_d.frame_bits = mem_rd_data[IR_FRAME_BITS_MSB:IR_FRAME_BITS_LSB];
+          payload_d.protocol_id = mem_rd_data[IR_PROTOCOL_ID_MSB:IR_PROTOCOL_ID_LSB];
+          payload_d.flags = mem_rd_data[IR_FLAGS_MSB:IR_FLAGS_LSB];
           state_d = ST_DECODE_WORD;
         end
       end
 
       ST_DECODE_WORD: begin
-        payload_d = word_q;
-        if (word_q[0]) begin
+        if (payload_q.flags[IR_FLAG_VALID_BIT]) begin
           state_d = ST_WAIT_ENCODER;
         end else begin
           state_d = ST_ERROR;

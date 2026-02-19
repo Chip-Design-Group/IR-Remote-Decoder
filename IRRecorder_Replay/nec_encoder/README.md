@@ -11,6 +11,7 @@ Der `nec_encoder` erzeugt aus einem Payload (`address`, `command`, `flags`) die 
 - `mark_active = 0`: Space
 - `frame_done`: 1-Takt-Puls am Ende
 - `busy`/`frame_active`: aktiv während des Frames
+- Der Encoder nutzt `frame_data`, `frame_bits` und `protocol_id`, um auch Samsung32/Samsung36-Frames mit korrekter Leader-/Sync-Struktur zu reproduzieren.
 
 ## Frame-Format
 

@@ -19,6 +19,8 @@
 //   status flags for wrapper/debug
 //------------------------------------------------------------------------------
 
+import ir_types_pkg::*;
+
 module ir_recorder_replay_top #(
   parameter int CORE_CLK_HZ     = 10_000_000,
   parameter int RECORD_TIMEOUT_CYCLES = (3 * CORE_CLK_HZ), // ~3s at 10MHz core
@@ -82,26 +84,29 @@ module ir_recorder_replay_top #(
   logic [4:0]           dec_protocol_i;
   logic [47:0]          dec_frame_data_i;
   logic [5:0]           dec_frame_bits_i;
+  logic [7:0]           ext_addr;
+  logic [7:0]           ext_cmd;
+  logic [4:0]           ext_protocol_id;
+  logic [47:0]          ext_frame_data;
 
   logic                 dec_valid_mux;
   logic                 dec_error_mux;
-  logic [4:0]           protocol_id_mux;
-  logic [31:0]          dec_payload_mux;
-  logic [31:0]          rec_payload;
+
+  ir_payload_t          rec_payload;
 
   logic                 mem_wr_en;
   logic [2:0]           mem_wr_addr;
-  logic [31:0]          mem_wr_data;
+  ir_word_t             mem_wr_data;
   logic                 mem_rd_en;
-  logic [2:0]           mem_rd_addr;
-  logic [31:0]          mem_rd_data;
+  ir_slot_t             mem_rd_addr;
+  ir_word_t             mem_rd_data;
   logic                 mem_rd_valid;
 
   logic                 rec_busy, rec_done_i, rec_error;
   logic                 rep_busy, rep_done_i, rep_error;
   logic                 enc_start, enc_mark_active, enc_frame_active, enc_frame_done, enc_busy, enc_error;
   logic                 tx_ready, enc_ready;
-  logic [31:0]          enc_payload;
+  ir_payload_t          enc_payload;
   logic [7:0]           uart_data, uart_data_raw, uart_data_fmt;
   logic                 uart_tx_req, uart_tx_req_raw, uart_tx_req_fmt, uart_ready;
   logic                 uart_ready_raw, uart_ready_fmt;
@@ -110,6 +115,10 @@ module ir_recorder_replay_top #(
   logic                 error_raw;
 
   assign clk_core = clk;
+  assign ext_addr = dec_payload[23:16];
+  assign ext_cmd  = dec_payload[15:8];
+  assign ext_protocol_id = dec_payload[7:3];
+  assign ext_frame_data = {16'h0000, {~ext_cmd, ext_cmd, ~ext_addr, ext_addr}};
 
   // 1 us pulse generator in core clock domain.
   always_ff @(posedge clk_core or negedge rst_n) begin
@@ -204,32 +213,28 @@ module ir_recorder_replay_top #(
   // - external decoded stream for test/debug injection.
   always_comb begin
     if (use_external_decoder_data) begin
-      dec_valid_mux   = dec_valid;
-      dec_payload_mux = dec_payload;
-      protocol_id_mux = 5'd0;
-      dec_error_mux   = 1'b0;
+      dec_valid_mux = dec_valid;
+      dec_error_mux = 1'b0;
+      uart_addr     = ext_addr;
+      uart_cmd      = ext_cmd;
+      uart_protocol_id = ext_protocol_id;
+      rec_payload.frame_data = ext_frame_data;
+      rec_payload.frame_bits = 6'd32;
+      rec_payload.protocol_id = ext_protocol_id;
+      rec_payload.flags = dec_payload[7:0];
+      rec_payload.flags[IR_FLAG_VALID_BIT] = 1'b1;
     end else begin
-      dec_valid_mux           = dec_data_valid_i;
-      // Internal decoder provides 8-bit NEC address. For replay encoding we
-      // store it in 8-bit NEC form: {addr_inv, addr}.
-      dec_payload_mux[31:16]  = {~dec_addr_i, dec_addr_i};
-      dec_payload_mux[15:8]   = dec_cmd_i;
-      dec_payload_mux[7:3]    = dec_protocol_i;
-      dec_payload_mux[2:0]    = 3'b000;
-      protocol_id_mux         = dec_protocol_i;
-      dec_error_mux           = dec_error_i;
+      dec_valid_mux = dec_data_valid_i;
+      dec_error_mux = dec_error_i;
+      uart_addr     = dec_addr_i;
+      uart_cmd      = dec_cmd_i;
+      uart_protocol_id = dec_protocol_i;
+      rec_payload.frame_data = dec_frame_data_i;
+      rec_payload.frame_bits = dec_frame_bits_i;
+      rec_payload.protocol_id = dec_protocol_i;
+      rec_payload.flags = IR_FLAGS_DEFAULT;
+      rec_payload.flags[IR_FLAG_VALID_BIT] = 1'b1;
     end
-  end
-
-  // Build recorder payload:
-  // - force slot-valid bit
-  // - expose address/command bytes for UART formatter.
-  always_comb begin
-    rec_payload = dec_payload_mux;
-    rec_payload[0] = 1'b1; // valid bit
-    uart_addr = dec_payload_mux[23:16];
-    uart_cmd  = dec_payload_mux[15:8];
-    uart_protocol_id = protocol_id_mux;
   end
 
   // -------------------------
