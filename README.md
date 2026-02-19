@@ -12,6 +12,10 @@ This repository contains the complete source code for a hardware-based Infrared 
 - **Comprehensive Test Suite** based on Python and CocoTB.
 - **IR Recording & Replay** capabilities.
 
+## 🎛️ Supported Remotes
+
+![Supported Remotes](docs/images/supported_remotes.jpeg)
+
 ## 📂 Structure
 
 The project is modular. Each module resides in its own subdirectory with source code, tests, and documentation.
