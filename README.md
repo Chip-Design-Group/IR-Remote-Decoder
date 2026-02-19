@@ -22,8 +22,9 @@ The decoder core supports multiple variants of the pulse-distance protocol:
     *   Carrier: 38 kHz
     *   Leader: 9ms Mark, 4.5ms Space
     *   32-bit payload (Address + Command)
-2.  **Samsung** (Variant of NEC)
-    *   Different timing for leader and data bits
+2.  **Samsung32 & Samsung36** (Variants of NEC)
+    *   Same timing for leader and data bits
+    *   32-bit payload (Samsung32) or 36-bit payload (Samsung36)
 3.  **N8X2** (Common RGB LED Strip Controllers)
     *   Shorter timings than standard NEC
     *   Often found with 24-key or 44-key remotes
