@@ -51,6 +51,14 @@ module ir_recorder_replay_chip_top (
     .slot_addr  (esp_slot_addr)
   );
 
+  // Latch slot address so it stays stable after the 1-cycle pulse
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n)
+      esp_slot_addr_lat <= 6'd0;
+    else if (esp_record_req || esp_replay_req)
+      esp_slot_addr_lat <= esp_slot_addr;
+  end
+
   // External pad requests remain supported; ESP commands are ORed in.
   assign combined_record_req = record_req | esp_record_req;
   assign combined_replay_req = replay_req | esp_replay_req;

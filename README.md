@@ -22,12 +22,12 @@ The decoder core supports multiple variants of the pulse-distance protocol:
     *   Carrier: 38 kHz
     *   Leader: 9ms Mark, 4.5ms Space
     *   32-bit payload (Address + Command)
-2.  **Samsung32 & Samsung36** (Variants of NEC)
-    *   Same timing for leader and data bits
-    *   32-bit payload (Samsung32) or 36-bit payload (Samsung36)
-3.  **N8X2** (Common RGB LED Strip Controllers)
-    *   Shorter timings than standard NEC
-    *   Often found with 24-key or 44-key remotes
+2.  **Samsung32 & Samsung36**
+    *   Pulse-distance protocol similar to NEC but with different leader/sync timings
+    *   32-bit (Samsung32) or 36-bit (Samsung36) payload
+3.  **N8X2** (Project-specific designation)
+    *   A custom name for the protocol used by common cheap RGB LED remote controllers (24/44 keys)
+    *   NEC-like structure but with significantly shorter bit timings (approx. 1.0 ms for '1')
 
 ## 📂 Structure
 
