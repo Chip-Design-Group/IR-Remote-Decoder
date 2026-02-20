@@ -30,7 +30,7 @@ SIGNOFF_SDC_FILE: dir::constraints/signoff.sdc
 
 FP_SIZING: absolute
 DIE_AREA: [0, 0, 1340, 1340]
-CORE_AREA: [343.2, 343.98, 997.44, 994.14]
+CORE_AREA: [342.74, 343.71, 997.52, 994.95]
 
 
 VDD_NETS: ["VDD"]
@@ -59,11 +59,9 @@ RUN_POST_GRT_RESIZER_TIMING: true
 PRIMARY_GDSII_STREAMOUT_TOOL: klayout
 MAGIC_EXT_UNIQUE: notopports
 PAD_BONDPAD_NAME: bondpad_70x70
-PAD_SITE_NAME: sg13g2_ioSite
-PAD_CORNER_SITE_NAME: sg13g2_ioSite
 
-EXTRA_GDS: dir::bondpad/bondpad_70x70.gds
-EXTRA_LEFS: dir::bondpad/bondpad_70x70.lef
+EXTRA_GDS: dir::../bondpad/bondpad_70x70.gds
+EXTRA_LEFS: dir::../bondpad/bondpad_70x70.lef
 
 PL_TARGET_DENSITY_PCT: 35
 GPL_CELL_PADDING: 4
