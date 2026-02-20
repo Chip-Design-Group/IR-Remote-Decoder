@@ -10,6 +10,11 @@ librelane-fast:
 librelane-signoff:
 	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --run-tag signoff --overwrite config_signoff.yaml
 
-.PHONY: view-results
+.PHONY: view-results-fast
 view-results:
-	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --last-run --flow OpenInOpenROAD config.yaml
+	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --last-run --flow OpenInOpenROAD config_fast.yaml
+
+
+PHONY: view-results-signoff
+view-results:
+	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --last-run --flow OpenInOpenROAD config_signoff.yaml
