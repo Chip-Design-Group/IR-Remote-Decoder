@@ -10,7 +10,7 @@ export CHIP_GDS_WITH_LOGO=gds/final-logo.gds
 
 .PHONY: img2gds
 img2gds:
-	python scripts/img2gds.py --cellname $(CELLNAME) --invert --layer 134 --scale 0.35 --pixel-size 2 --threshold 200 $(IMAGE_PATH) $(GDS_PATH)
+	python scripts/img2gds.py --cellname $(CELLNAME) --invert --layer 134 --scale 0.35 --pixel-size 2 --threshold 210 $(IMAGE_PATH) $(GDS_PATH)
 
 .PHONY: drc
 drc:
