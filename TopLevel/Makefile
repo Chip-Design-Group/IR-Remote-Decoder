@@ -1,26 +1,20 @@
 WORK_DIR=$(shell pwd)
-TOP=top
-TAG=top-run
-
 PDK_ROOT ?= $(WORK_DIR)/../pdk
 PDK = ihp-sg13g2
 
-.PHONY: librelane
-librelane:
-	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --run-tag $(TAG) --overwrite config_fast.yaml
+.PHONY: librelane-fast
+librelane-fast:
+	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --run-tag fast --overwrite config_fast.yaml
 
-.PHONY: librelane-drc-debug
-librelane-drc-debug:
-	cd src && PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --run-tag drc-debug --overwrite config_drc_debug.yaml
+.PHONY: librelane-signoff
+librelane-signoff:
+	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --run-tag signoff --overwrite config_signoff.yaml
 
-.PHONY: librelane-signoff-quick
-librelane-signoff-quick:
-	cd src && PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --run-tag signoff-quick --overwrite config_signoff_quick.yaml
-
-.PHONY: librelane-tapeout
-librelane-tapeout:
-	cd src && PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --run-tag tapeout --overwrite config_tapeout.yaml
-
-.PHONY: view-results
+.PHONY: view-results-fast
 view-results:
-	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --last-run --flow OpenInOpenROAD config.yaml
+	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --last-run --flow OpenInOpenROAD config_fast.yaml
+
+
+PHONY: view-results-signoff
+view-results:
+	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --last-run --flow OpenInOpenROAD config_signoff.yaml

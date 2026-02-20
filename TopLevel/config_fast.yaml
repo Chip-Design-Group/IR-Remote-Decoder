@@ -2,18 +2,28 @@ meta:
   version: 3
   flow: Chip
   substituting_steps:
+    # Magic reports some overlaps which can be ignored
     Checker.IllegalOverlap: null
-    KLayout.DRC: null
-    Checker.KLayoutDRC: null
+    # Not working correctly
+    KLayout.SealRing: null
+    # Disable magic DRC
     Magic.DRC: null
     Checker.MagicDRC: null
-    KLayout.SealRing: null
-    KLayout.Antenna: null
-    KLayout.Filler: null
+    # Disable KLayout density check
     KLayout.Density: null
     Checker.KLayoutDensity: null
+
+    # you can uncomment this for the flow to be faster. Comment it again in the final run.
+    KLayout.DRC: null
+    Checker.KLayoutDRC: null
+
+    # you can uncomment this for the flow to be faster. Comment it again in the final run.
+    KLayout.Antenna: null
     Checker.KLayoutAntenna: null
-    Magic.SpiceExtraction: null
+
+    # you can uncomment this for the flow to be faster. Comment it again in the final run.
+    OpenROAD.IRDropReport: null
+    KLayout.XOR: null
     Netgen.LVS: null
     Checker.LVS: null
 
@@ -54,29 +64,24 @@ GND_NETS: ["VSS"]
 PDN_CORE_RING: true
 PDN_CORE_RING_CONNECT_TO_PADS: false
 PDN_ENABLE_PINS: true
-PDN_CORE_RING_VWIDTH: 12
-PDN_CORE_RING_HWIDTH: 12
-PDN_CORE_RING_VSPACING: 4.0
-PDN_CORE_RING_HSPACING: 4.0
+PDN_CORE_RING_VWIDTH: 15
+PDN_CORE_RING_HWIDTH: 15
+PDN_CORE_RING_VSPACING: 2.5
+PDN_CORE_RING_HSPACING: 2.5
 PDN_CORE_RING_VOFFSET: 2.5
 PDN_CORE_RING_HOFFSET: 2.5
 PDN_VPITCH: 40
 PDN_HPITCH: 40
-PDN_VWIDTH: 3.0
-PDN_HWIDTH: 3.0
-PDN_VSPACING: 4.0
-PDN_HSPACING: 4.0
+PDN_VWIDTH: 3.5
+PDN_HWIDTH: 3.5
+PDN_VSPACING: 2.5
+PDN_HSPACING: 2.5
 PDN_VOFFSET: 2.5
 PDN_HOFFSET: 2.5
 ERROR_ON_PDN_VIOLATIONS: false
 RUN_POST_GRT_RESIZER_TIMING: true
 
-# Metal slotting for wide wires (prevents Slt.c violations)
-FP_PDN_ENABLE_RAILS: true
-FP_PDN_STRAP_LAYER: Metal3
-
 PRIMARY_GDSII_STREAMOUT_TOOL: klayout
-MAGIC_EXT_UNIQUE: notopports
 PAD_BONDPAD_NAME: bondpad_70x70
 PAD_SITE_NAME: sg13g2_ioSite
 PAD_CORNER_SITE_NAME: sg13g2_ioSite
