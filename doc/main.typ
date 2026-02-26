@@ -1,4 +1,5 @@
 #import "@preview/ilm:1.4.1": *
+#import "@preview/cetz:0.3.4": canvas, draw
 
 #show: ilm.with(
   title: [IR Remote Decoder],
@@ -13,7 +14,7 @@
     This documentation was written to capture not only the final design decisions but also the 
     problems encountered along the way and how they were resolved.
   ],
-  bibliography: none,
+  bibliography: bibliography("references.bib"),
   figure-index: (enabled: true),
   table-index: (enabled: true),
   listing-index: (enabled: true),
@@ -52,32 +53,6 @@ The two subsystems communicate over a custom 2-pin serial interface (DATA + CLK)
   ),
   caption: [Subsystem responsibilities],
 )
-
-== ESP32–FPGA Serial Protocol
-
-A 12-bit frame is transmitted MSB-first over two bit-banged GPIO lines at 500 Baud
-(2 ms per half-period). The FPGA samples DATA on the rising CLK edge.
-
-#figure(
-  table(
-    columns: (auto, auto, auto),
-    table.header([*Bits*], [*Field*], [*Description*]),
-    [11:6], [Slot address], [6-bit index — `[5:4]` = remote ID, `[3:0]` = slot number],
-    [5:3],  [Command],      [`001` = PLAY, `010` = REC],
-    [2:0],  [Magic],        [`101` — discards malformed frames on FPGA side],
-  ),
-  caption: [12-bit serial frame layout],
-) <tab-frame>
-
-=== Challenge: Noise on the serial line
-
-During initial testing, the FPGA occasionally received corrupted frames due to GPIO
-noise on the breadboard prototype.
-
-*Solution:* The 3-bit magic field (`101`) was introduced as a lightweight frame
-validator. Frames not matching the magic value are silently discarded by the FPGA.
-Additionally, CLK and DATA lines were pulled low by default (idle state) to avoid
-floating inputs triggering false frames.
 
 = FPGA Design
 
@@ -144,13 +119,13 @@ The UART transmitter serializes 8-bit data into standard 8N1 frames (start bit, 
 
  
 
-#figure(
+//#figure(
 
-  image("../IRDecoder/UART_TX/uart_tx.png", width: 80%),
+ // image("../IRDecoder/UART_TX/uart_tx.png", width: 80%),
 
-  caption: [UART TX state machine — 8N1 transmission with baud interval timing],
+ // caption: [UART TX state machine — 8N1 transmission with baud interval timing],
 
-) <fig-uart-tx-fsm>
+//) <fig-uart-tx-fsm>
 
 == Interface Contract (Katalin Szentmiklosy)
 
@@ -162,13 +137,13 @@ The recorder implements a five-state FSM (IDLE, WAIT_VALID, WRITE, DONE, ERROR) 
 
  
 
-#figure(
+//#figure(
 
-  image("../IRRecorder_Replay/Recorder/ir_recorder.png", width: 90%),
+ // image("../IRRecorder_Replay/Recorder/ir_recorder.png", width: 90%),
 
-  caption: [IR Recorder FSM — timeout handling and back-to-back request support],
+  //caption: [IR Recorder FSM — timeout handling and back-to-back request support],
 
-) <fig-ir-recorder-fsm>
+//) <fig-ir-recorder-fsm>
 
 Early implementations required manual timeout counter resets when `record_req` was deasserted mid-wait, leaving stale error flags. Additionally, the FSM forced an extra idle cycle between consecutive requests, reducing throughput. The final design resets `wait_cnt_q` automatically when `record_req` drops, and both DONE and ERROR states accept immediate `record_req` re-assertion, transitioning directly to WAIT_VALID or WRITE without idle cycles. This allows seamless retry workflows where users can re-trigger recording after a timeout without manual state clearing.
 
@@ -177,13 +152,13 @@ The storage module infers block RAM (`(* ram_style = "block" *)`) with separate 
 
  
 
-#figure(
+//#figure(
 
-  image("../IRRecorder_Replay/STORAGE_BRAM/ir_storage_bram.png", width: 75%),
+ // image("../IRRecorder_Replay/STORAGE_BRAM/ir_storage_bram.png", width: 75%),
 
-  caption: [Storage BRAM operation flow — single-cycle read/write with persistent storage],
+ // caption: [Storage BRAM operation flow — single-cycle read/write with persistent storage],
 
-) <fig-ir-storage-bram>
+//) <fig-ir-storage-bram>
 
 Initially, `rd_valid` remained asserted for multiple cycles when `rd_en` was held high, violating the single-cycle pulse contract defined in `ir_types_pkg`. The final implementation explicitly deasserts `rd_valid` at the start of each clock cycle and only reasserts it when `rd_en` is sampled, ensuring strict single-cycle pulse behavior regardless of input hold time. This matches the handshake protocol expected by downstream modules (e.g., IR player) and prevents spurious read acknowledgments.
 
@@ -205,8 +180,7 @@ protocol, and building the Wi-Fi web interface.
 The implementation was verified on a Digilent Arty A7-35T board carrying a Xilinx
 Artix-7 XC7A35T FPGA. The board provides a 100 MHz system oscillator.
 
-The FPGA I/O pins were mapped as follows:
-
+The FPGA I/O pins were mapped as folliwing:
 #figure(
   table(
     columns: (auto, auto),
@@ -221,7 +195,7 @@ The FPGA I/O pins were mapped as follows:
 )
 
 Status LEDs were mapped to the four on-board RGB LEDs and used during bring-up to
-verify subsystem health without an oscilloscope:
+verify the behavior:
 
 #figure(
   table(
@@ -229,7 +203,7 @@ verify subsystem health without an oscilloscope:
     table.header([*LED*], [*Meaning*]),
     [`LD7`], [Heartbeat — blinks at ≈ 0.8 s to confirm clock and reset are healthy],
     [`LD6`], [IR receiving — on while `ir_in` is active (demodulator output low)],
-    [`LD4`], [Decode OK — 200 ms pulse after a valid NEC frame is decoded],
+    [`LD4`], [Decode OK — 200 ms pulse after a valid frame is decoded],
     [`LD5`], [Record active — fast blink (≈ 100 ms) while a slot is being recorded],
   ),
   caption: [Debug LED assignments on the Arty A7-35T],
@@ -239,8 +213,9 @@ verify subsystem health without an oscilloscope:
 
 The IR receiver requires a supply voltage of *5 V*
 to operate correctly. The Arty A7-35T board, however, only provides a *3.3 V* rail,
-and its I/O pins must not see more than * < 3.4 V* on any input. Two problems therefore
-had to be solved:
+and its I/O pins must not see more than *3.4 V* on any input
+(Artix-7 absolute maximum rating for $V_"IN"$ on a 3.3 V-powered bank @artix7_ds181).
+Two problems therefore had to be solved:
 
 + *Boost the supply* from 3.3 V to 5 V for the Receiver power pin.
 + *Level-shift the output* of the TSOP (which swings between 0 V and $V_"CC"$ = 5 V)
@@ -251,21 +226,21 @@ Both issues are addressed by the circuit shown below.
 === Schematic
 
 #figure(
-  image("IR-Receiver.pdf", width: 90%),
-  caption: [IR receiver circuit — 5 V with a 5 V power supply and output voltage divider],
+  image("IR-Receiver.pdf", width: 80%),
+  caption: [IR receiver circuit — 5 V power supply and output voltage divider],
 ) <fig-ir-rx>
 
 === Supply network
 
-The power supply provides $V_"CC" = 5 "V"$ DC.
+Instead of using the 3.3 V supply from the Arty A7-35T, an external $V_"CC" = 5 "V"$ DC power supply is used to power the IR receiver module. The 5 V supply is connected to the VCC pin, while its GND is shared with the FPGA board to maintain a common reference.
 
 === Output level-shift (voltage divider)
 
-The TSOP output swings from 0 V (active) to $V_"CC" = 5 "V"$ (idle).
+The Receiver output swings from 0 V (active) to $V_"CC" = 5 "V"$ (idle).
 A resistive voltage divider scales this to a safe level for the 3.3 V FPGA input
 ($V_"in,max" = 3.4 "V"$).
 
-Choose $R_1 = 1 "k"Omega$ (top) and $R_2 = 2 "k"Omega$ (bottom, to GND):
+Choose $R_1 = 1 "k"Omega$ (top) and $R_2 = 2 "k"Omega$ (bottom):
 
 $
 V_"out" = V_"CC,supply" times frac(R_2, R_1 + R_2)
@@ -277,129 +252,282 @@ $
 
 The Arty A7-35T only provides a *3.3 V* supply rail, and the FPGA control pin
 `ir_tx_PAD` drives at 3.3 V logic levels. Because the IR LED requires
-more current than the FPGA GPIO can safely source (max. 12 mA per pin), an *NPN
-transistor* (e.g. 2N2222) is used as a low-side switch between the LED
-and GND. The FPGA drives only the base current; the full LED current flows through
-the collector. The entire circuit is supplied at 5V, as we use the same 5 V supply as the receiver. This allows the IR LED to achieve the necessary forward voltage and current for proper transmission while keeping all node voltages within the board's safe operating range.
+more current than the FPGA GPIO can safely source, (the Artix-7 datasheet specifies
+a maximum of *12 mA* per output pin @artix7_ds181). An *NPN
+transistor* (2N2222) is used as a switch between the LED
+and GND. The FPGA drives only the base current. The entire circuit is supplied at 5V, as we use the same 5 V supply as the receiver. This allows the IR LED to achieve the necessary forward voltage and current.
 
 === Schematic
 
 #figure(
-  image("IR-Transmitter.pdf", width: 90%),
-  caption: [IR transmitter circuit — NPN low-side switch driving 950 nm IR LED at 38 kHz],
+  image("IR-Transmitter.pdf", width: 80%),
+  caption: [IR transmitter circuit — NPN driving IR LED],
 ) <fig-ir-tx>
 
 === Design targets
 
-- IR LED forward voltage: $V_F approx 1.2 "V"$ 
-- LED current: $I_"f,LED" = 20 "mA"$
+- IR LED forward voltage: $V_F approx 1.2 "V"$
+- LED current: $I_"f,LED" = 20 "mA"$, $I_"LED,max" = 100 "mA"$
 - Supply: $V_"CC" = 5 "V"$ 
-- NPN saturation voltage: $V_"CE,sat" approx 0.2 "V"$
 - NPN current gain: $h_"FE,min" = 100$ (conservative for 2N2222)
-- FPGA GPIO output: 3.3 V, max. 12 mA drive capability
+- FPGA GPIO output: 3.3 V, max. 12 mA drive capability (LVCMOS33 @artix7_ds181)
 
 === Led resistor $R_3$
-To set the LED current to 20 mA in saturation:
+To set the LED current to 20 mA:
 $
-R_3 = frac(V_"CC" - V_F - V_"CE,sat", I_"f,LED")
+R_3 = frac(V_"CC" - V_F, I_"f,LED")
     = frac(5 V - 1.2 V, 0.02 A)
-    = frac(3.8 V, 0.02 A)
-    = 190 space "Omega"
-    -> "use" 220 space "Omega" " (E12 series)"
+    = 190 Omega
+    -> "use" 220 Omega " (E12 series)"
 $
 
 
 === Base resistor $R_4$
 
-To saturate the transistor ($I_B >= I_"LED" / h_"FE"$) while keeping the FPGA GPIO
+To saturate the transistor ($I_B >= I_"LED,max" / h_"FE"$) while keeping the FPGA GPIO
 current within its 12 mA limit:
 
 $
-I_"B,needed" = frac(I_"LED", h_"FE,min") = frac(100 "mA", 100) = 1 "mA"
+I_"B,needed" = frac(I_"LED,max", h_"FE,min") = frac(100 "mA", 100) = 1 "mA"
 $
 
 $
 R_B = frac(V_"GPIO" - V_"BE", I_B)
     = frac(3.3 V - 0.6 V , 1 "mA")
     = frac(2.7 V, 1 "mA")
-    = 2.7 space "kOmega"
-    -> "use" 3 space "kOmega"
+    = 2.7 space "k"Omega
 $
 
-Resulting FPGA GPIO current:
-
 $
-I_"GPIO" = frac(3.3 V - 0.6 V, 3 "kOmega") approx 1 "mA" < 12 "mA" space checkmark
+  I_"GPIO" = frac(3.3 V - 0.6 V, 2.7 "k"Omega) =1 "mA" < 12 "mA" space checkmark
 $
-
 
 == ESP32–FPGA Serial Protocol Design
 
-=== Motivation
+=== Design Evolution: from Parallel GPIO to Serial Protocol
 
-The ESP32-C3 needed a simple, robust way to command the FPGA to replay or record an
-IR slot. SPI hardware was available on both sides, but wiring the full SPI bus
-(MOSI, MISO, SCK, CS) across a jumper connection on a prototype board introduced
-noise issues. A 2-wire bit-banged solution (DATA + CLK) was chosen for simplicity.
+The first approach considered for signalling commands from the ESP32-C3 to the FPGA
+was to dedicate one output GPIO per slot asserting the corresponding pin high would
+trigger a replay (short high pulse) or record (3 second high pulse) operation. While simple to implement in firmware, this
+approach has a scalability problem: At first we only wanted to support 4 remotes with 2 slots each. This was doable, but we wanted to support more remotes and more buttons (now 4 remotes × 10 buttons)
+plus a record/replay command input, at least 41 GPIOs would now be required.
+The ESP32-C3 has only 22 usable GPIOs in total @esp32c3_devkitc02, making this approach impossible.
 
-=== Frame format
+Another thought was to use a binary-encoded slot address over 6 GPIO lines
+($2^6 = 64$ addressable slots) plus one GPIO for the command (PLAY / REC).
+This would have required 7 FPGA input pins still unpractical, and any additional command types would require more pins.
 
-A 12-bit frame is transmitted MSB-first at 500 Baud (2 ms per bit half-period), idle
-LOW. See @tab-frame for the field breakdown.
+The final design encodes the full command into a *2-wire serial frame* (DATA + CLK).
+This reduces the physical connection to the absolute minimum and the protocol can be
+extended with new command types or wider slot addresses without touching the hardware.
 
-The *3-bit magic field* (`101`) was deliberately included to discard malformed or
-partially-received frames — even a single glitch bit that shifts the frame by one
-position cannot produce a coincidental magic match in the command and magic fields
-simultaneously.
+#figure(
+  table(
+    columns: (auto, auto, 1fr),
+    table.header([*Approach*], [*GPIOs needed*], [*Drawback*]),
+    [One GPIO per slot],        [≥ 41],  [Exceeds ESP32-C3 pin count entirely],
+    [Binary slot + cmd GPIO],   [7],     [Rigid — adding commands requires more pins],
+    [2-wire serial (chosen)],   [2],     [Requires synchronous receiver on FPGA side],
+  ),
+  caption: [Interface design alternatives considered],
+)
 
-=== FPGA-side receiver (`esp32_spi_receiver.sv`)
+=== ESP32-C3 Pin Mapping
 
-The receiver was implemented as a standalone synchronous module:
+#figure(
+  table(
+    columns: (auto, auto, auto),
+    table.header([*ESP32-C3 GPIO*], [*Signal*], [*Connected to*]),
+    [`GPIO 4`], [`DATA` (SPI MOSI)], [FPGA `spi_data_PAD`],
+    [`GPIO 5`], [`CLK`  (SPI CLK)],  [FPGA `spi_clk_PAD`],
+    [`GND`],    [Common ground],     [FPGA GND / 5 V supply GND],
+  ),
+  caption: [ESP32-C3 pin assignments for FPGA interface],
+)
 
-+ *2-FF synchronizer* — CLK and DATA lines are double-registered to cross from the
-  asynchronous ESP32-C3 clock domain into the FPGA's 10 MHz clock domain.
-+ *Rising-edge detector* — a one-cycle pulse `clk_rise` is generated on each rising
-  edge of the synchronized CLK, gating the shift register.
-+ *Idle timeout* — if CLK remains LOW for more than 3 ms (30 000 cycles at 10 MHz)
-  the bit counter resets, re-synchronising the receiver after a partial or corrupted
-  frame without requiring a hard reset.
-+ *12-bit shift register* — bits are shifted in MSB-first on `clk_rise`; a `frame_done`
-  pulse fires one cycle after the 12th bit arrives.
-+ *Magic check and decode* — `frame_done` triggers a combinational check of bits
-  `[2:0]`; if the magic matches, `slot_addr`, `replay_req` or `record_req` are
-  asserted for exactly one clock cycle.
+#pagebreak(weak: true)
 
-=== ESP32-C3 firmware side
+=== Frame Format
 
-The `fpga_send_frame(slot, cmd)` function in `wifi_button.c` bit-bangs the 12-bit
-frame:
+A 12-bit frame is transmitted MSB-first over two bit-banged GPIO lines at 500 Baud
+(1 ms per half-period, 2 ms per bit). The FPGA samples DATA on the rising CLK edge.
+
+#figure(
+  canvas(length: 1cm, {
+    // ── layout constants ──────────────────────────────────────────────
+    let bits = (
+      // label, data bit value (for DATA line)
+      // Example frame: slot=0b000001 (slot 1), cmd=001 (PLAY), magic=101
+      // => bits [11..0] = 00 0001 001 101
+      "0","0","0","0","0","1",   // slot [11:6]
+      "0","0","1",               // cmd  [5:3]
+      "1","0","1",               // magic[2:0]
+    )
+    let n     = bits.len()       // 12
+    let bw    = 1.0              // bit width (cm)
+    let clkY  = 2.2              // y-centre of CLK lane
+    let datY  = 0.6              // y-centre of DATA lane
+    let hi    = 0.55             // signal amplitude
+    let lw    = 0.6pt            // line weight
+
+    // ── idle period (half bit before first edge) ──────────────────────
+    let idle  = 0.6
+    let total = idle + n * bw + idle
+
+    // ── lane labels ───────────────────────────────────────────────────
+    draw.content((-.05, clkY), [*CLK*],  anchor: "east", padding: 2pt)
+    draw.content((-.05, datY), [*DATA*], anchor: "east", padding: 2pt)
+
+    // ── baseline (idle LOW) ───────────────────────────────────────────
+    draw.line((0, clkY - hi), (total, clkY - hi),
+              stroke: lw + gray)
+    draw.line((0, datY - hi), (total, datY - hi),
+              stroke: lw + gray)
+
+    // ── CLK waveform ──────────────────────────────────────────────────
+    // idle LOW, then for each bit: rise at t=0, fall at t=bw/2
+    let clk-pts = ((0, clkY - hi), (idle, clkY - hi))
+    for i in range(n) {
+      let x0 = idle + i * bw
+      let xm = x0 + bw * 0.5
+      let x1 = x0 + bw
+      clk-pts.push((x0, clkY - hi))
+      clk-pts.push((x0, clkY + hi))
+      clk-pts.push((xm, clkY + hi))
+      clk-pts.push((xm, clkY - hi))
+      clk-pts.push((x1, clkY - hi))
+    }
+    clk-pts.push((total, clkY - hi))
+    draw.line(..clk-pts, stroke: lw + blue)
+
+    // ── DATA waveform ─────────────────────────────────────────────────
+    // DATA is set BEFORE the rising CLK edge and held until after
+    let dat-pts = ((0, datY - hi),)
+    // idle LOW
+    dat-pts.push((idle, datY - hi))
+
+    for i in range(n) {
+      let x0  = idle + i * bw
+      let x1  = x0 + bw
+      let cur = if bits.at(i) == "1" { datY + hi } else { datY - hi }
+      let nxt = if i + 1 < n {
+        if bits.at(i + 1) == "1" { datY + hi } else { datY - hi }
+      } else { datY - hi }   // return to idle after last bit
+
+      dat-pts.push((x0, cur))
+      dat-pts.push((x1, cur))
+      if cur != nxt {
+        dat-pts.push((x1, nxt))
+      }
+    }
+    dat-pts.push((total, datY - hi))
+    draw.line(..dat-pts, stroke: lw + red)
+
+    // ── bit labels (field groups) ─────────────────────────────────────
+    let fields = (
+      (0,  5,  "Slot [11:6]"),
+      (6,  8,  "Cmd [5:3]"),
+      (9,  11, "Magic [2:0]"),
+    )
+    for (fs, fe, label) in fields {
+      let x0 = idle + fs * bw
+      let x1 = idle + (fe + 1) * bw
+      let xm = (x0 + x1) / 2
+      // bracket
+      draw.line((x0 + 0.05, datY - hi - 0.25),
+                (x0 + 0.05, datY - hi - 0.35),
+                (x1 - 0.05, datY - hi - 0.35),
+                (x1 - 0.05, datY - hi - 0.25),
+                stroke: 0.5pt + black)
+      draw.content((xm, datY - hi - 0.55), text(size: 7pt, label),
+                   anchor: "center")
+    }
+
+    // ── individual bit value labels ───────────────────────────────────
+    for i in range(n) {
+      let xm = idle + i * bw + bw * 0.5
+      draw.content((xm, datY),
+                   text(size: 7pt, weight: "bold", bits.at(i)),
+                   anchor: "center")
+    }
+
+    // ── rising-edge sample markers (↑) ───────────────────────────────
+    for i in range(n) {
+      let x = idle + i * bw
+      draw.line((x, clkY - hi - 0.1), (x, clkY + hi + 0.1),
+                stroke: (paint: green.darken(20%), thickness: 0.5pt,
+                         dash: "dashed"))
+    }
+
+    // ── time axis ─────────────────────────────────────────────────────
+    draw.line((0, -.85), (total, -.85), stroke: 0.5pt,
+              mark: (end: ">"))
+    draw.content((total + 0.1, -.85), text(size: 7pt)[t], anchor: "west")
+    for i in range(n + 1) {
+      let x = idle + i * bw
+      draw.line((x, -.80), (x, -.90), stroke: 0.5pt)
+      draw.content((x, -1.03),
+                   text(size: 6pt, str(i) + " ms"),
+                   anchor: "center")
+    }
+  }),
+  caption: [
+    Timing diagram of one 12-bit serial frame \
+    (example: slot 1, PLAY command, magic `101`). \
+    #text(size: 8pt)[
+      #box(fill: blue,  width: 8pt, height: 4pt) CLK — \
+      #box(fill: red,   width: 8pt, height: 4pt) DATA — \
+      #box(fill: green.darken(20%), width: 8pt, height: 4pt) rising CLK edge (FPGA samples DATA here)
+    ]
+  ],
+) <fig-timing>
+
+#figure(
+  table(
+    columns: (auto, auto, auto),
+    table.header([*Bits*], [*Field*], [*Description*]),
+    [11:6], [Slot address], [6-bit index — `[5:4]` = remote ID, `[3:0]` = slot number],
+    [5:3],  [Command],      [`001` = PLAY, `010` = REC],
+    [2:0],  [Magic],        [`101` — discards malformed frames on FPGA side],
+  ),
+  caption: [12-bit serial frame layout],
+) <tab-frame>
+
+=== Challenge: Noise on the serial line
+
+During testing, the FPGA occasionally received corrupted frames due to GPIO
+noise.
+
+*Solution:* The 3-bit magic field (`101`) was introduced as a lightweight frame
+validator. Frames not matching the magic value are discarded by the FPGA.
+
+=== ESP32-C3 Firmware
+
+The `fpga_send_frame(slot, cmd)` function in `wifi_button.c` sends the frame:
 
 ```c
-// Build the frame word
+// Build the 12-bit frame word
 uint16_t frame = ((slot & 0x3F) << 6) | ((cmd & 0x7) << 3) | MAGIC;
 
 // Clock out 12 bits, MSB first
 for (int i = 11; i >= 0; i--) {
     gpio_set_level(GPIO_DATA, (frame >> i) & 1);
-    vTaskDelay(pdMS_TO_TICKS(1));   // half-period: 1 ms
+    vTaskDelay(pdMS_TO_TICKS(1));   // setup: 1 ms before rising CLK edge
     gpio_set_level(GPIO_CLK, 1);
-    vTaskDelay(pdMS_TO_TICKS(1));
+    vTaskDelay(pdMS_TO_TICKS(1));   // hold:  1 ms after rising CLK edge
     gpio_set_level(GPIO_CLK, 0);
 }
-// Return lines to idle
-gpio_set_level(GPIO_DATA, 0);
+gpio_set_level(GPIO_DATA, 0);       // return to idle
 ```
-
-The `vTaskDelay(1 ms)` half-period gives 500 Baud — well within the FPGA synchronizer
-margin (10 MHz core clock, 20 synchronizer cycles per bit).
 
 == Wi-Fi Web Interface
 
 === Architecture
 
-The ESP32-C3 firmware runs under FreeRTOS with ESP-IDF v5.x. After Wi-Fi AP
-initialization it starts an `esp_http_server` instance with wildcard URI matching.
-Dynamic HTML is built in RAM buffers using `snprintf` and sent in a single chunk.
+The ESP32-C3 runs FreeRTOS with ESP-IDF v5.x, configured as a Wi-Fi SoftAP
+(SSID: _IR-Remote_). An `esp_http_server` instance handles all requests with
+wildcard URI matching. When a user presses a button in the browser, the HTTP handler
+calls `fpga_send_frame()` directly from the request task, keeping latency minimal.
 
 === HTTP API
 
@@ -409,41 +537,22 @@ Dynamic HTML is built in RAM buffers using `snprintf` and sent in a single chunk
     table.header([*Method*], [*URI*], [*Action*]),
     [`GET`],  [`/`],           [Home — overview of all 4 remotes],
     [`GET`],  [`/remote/N`],   [Detail page for remote _N_ (0–3)],
-    [`GET`],  [`/replay/S`],   [Send PLAY frame for slot _S_ to FPGA],
-    [`GET`],  [`/record/S`],   [Send REC frame for slot _S_ to FPGA],
+    [`GET`],  [`/replay/S`],   [Transmit PLAY frame for slot _S_ to FPGA],
+    [`GET`],  [`/record/S`],   [Transmit REC frame for slot _S_ to FPGA],
     [`POST`], [`/rename/S`],   [Store a name for slot _S_ (plain-text body)],
   ),
   caption: [HTTP API endpoints],
 ) <tab-api>
 
-=== Slot Management
-
-Slots use a flat 6-bit address (`[5:4]` = remote ID 0–3, `[3:0]` = slot 0–9).
-State is held in RAM:
-
-- `recorded_slots` — 64-bit bitmask, bit _N_ set if slot _N_ has been recorded
-- `slot_names[40][24]` — per-slot user-defined name (max. 23 characters)
-
 === Challenge: HTML buffer truncation on the last remote card
 
-The dynamically-built HTML response for the home page was being silently truncated,
-cutting off the last remote card in the browser.
+The dynamically-built HTML response was silently truncated, cutting off the last
+remote card in the browser.
 
-*Solution:* The root cause was a `size_t` underflow bug: `snprintf` returns the
-_desired_ output length even when the buffer is full, causing `buf_size - pos` to
-wrap around to a huge value. The buffer was increased to 16 KB and all `snprintf`
-calls were replaced with a safe macro that clamps `pos` to `buf_size` before writing.
-
-=== Challenge: Slot names not surviving page navigation
-
-Slot names entered by the user were lost when navigating back to the remote page
-because the HTML was regenerated from the in-memory array, which was populated
-correctly — but the input field `value` attribute was not being set.
-
-*Solution:* The `build_remote_html()` function was updated to pass the stored
-`slot_names[slot]` as the `value` attribute of each name input field. Additionally,
-the `doRename()` JavaScript function now updates the `<h3>` heading live after a
-successful save, providing immediate visual feedback without a page reload.
+*Solution:* A `size_t` underflow in `snprintf` — it returns the _desired_ length even
+when the buffer is full — caused `buf_size - pos` to wrap to a huge value. The buffer
+was increased to 16 KB and all `snprintf` calls were wrapped in a `SNPRINTF_SAFE`
+macro that clamps `pos` to `buf_size` before each write.
 
 = System Parameters
 
@@ -456,7 +565,7 @@ successful save, providing immediate visual feedback without a page reload.
     [NEC leader burst],         [9 ms ± 20%],
     [NEC data bit '1'],         [2.25 ms pulse distance],
     [NEC data bit '0'],         [1.125 ms pulse distance],
-    [Serial baud rate],         [500 Baud (2 ms half-period)],
+    [Serial baud rate],         [500 Baud (2 ms per bit, 1 ms half-period)],
     [Max. slots],               [40 (4 remotes × 10 slots)],
     [Slot name max. length],    [23 characters],
     [Wi-Fi SSID],               [IR-Remote],
