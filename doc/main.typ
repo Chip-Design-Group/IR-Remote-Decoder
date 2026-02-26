@@ -138,7 +138,7 @@ and only forwards the initial frame to the slot controller.
 Serializes decoded NEC frames (address + command) into ASCII for UART transmission,
 enabling host-side logging and testbench verification.
 
-== UART_TX
+== UART_TX (Katalin Szentmiklosy)
 
 The UART transmitter serializes 8-bit data into standard 8N1 frames (start bit, 8 data bits LSB-first, stop bit) for debug output to a host PC. The module implements a four-state FSM (IDLE, START, DATA, STOP) with a configurable `CLOCKS_PER_BIT` parameter to set the baud rate. Initially, a simplified version without baud interval timing was developed to verify the basic state transitions and bit serialization logic. The final implementation adds a `baud_cnt` counter that holds each bit for exactly one bit period, ensuring correct UART timing. In the IDLE state, `tx_out` remains high and `ready` is asserted. When `send_req` is triggered, `data_in` is latched into an internal shift register, and the FSM transitions through START, DATA (shifting out 8 bits via `bit_idx`), and STOP states, each waiting for the configured baud interval before advancing.
 
@@ -152,11 +152,11 @@ The UART transmitter serializes 8-bit data into standard 8N1 frames (start bit, 
 
 ) <fig-uart-tx-fsm>
 
-== Interface Contract
+== Interface Contract (Katalin Szentmiklosy)
 
 Before implementation, a versioned interface contract (`ir_types_pkg.sv`) was established defining a 67-bit storage word (`ir_word_t`) that packs frame data (48 bits), frame length (6 bits), protocol ID (5 bits), and flags (8 bits). Fixed bit positions (`IR_FLAGS_LSB/MSB`, `IR_PROTOCOL_ID_LSB/MSB`, etc.) enable transparent debugging, while helper functions (`ir_pack_word`, `ir_unpack_word`) ensure consistent encoding across RTL and testbenches. The 6-bit slot address supports 40 slots (4 remotes × 10 buttons), with bits [5:4] encoding remote ID and [3:0] button number. Flag bits define slot validity (`IR_FLAG_VALID_BIT`) and repeat mode (`IR_FLAG_REPEAT_BIT`), with reserved bits for future extensions. This contract eliminated bit-slicing errors between recorder, storage, and replay modules during parallel development.
 
-== Recorder
+== Recorder (Katalin Szentmiklosy)
 
 The recorder implements a five-state FSM (IDLE, WAIT_VALID, WRITE, DONE, ERROR) that accepts decoded NEC payloads and writes them to storage BRAM. When `record_req` is asserted, the module latches `target_slot` and waits for `dec_valid`. Initially, a simplified version without timeout handling was developed to verify basic state transitions and payload packing. The final implementation adds a configurable `WAIT_TIMEOUT_CYCLES` parameter (default 256): if no valid frame arrives, the FSM transitions to ERROR and pulses the error flag for one cycle. On success, `ir_pack_word()` serializes the payload into `ir_word_t` format, triggering a single-cycle `mem_wr_en` pulse. The `busy` signal remains high during WAIT_VALID and WRITE to prevent concurrent requests.
 
@@ -172,7 +172,7 @@ The recorder implements a five-state FSM (IDLE, WAIT_VALID, WRITE, DONE, ERROR) 
 
 Early implementations required manual timeout counter resets when `record_req` was deasserted mid-wait, leaving stale error flags. Additionally, the FSM forced an extra idle cycle between consecutive requests, reducing throughput. The final design resets `wait_cnt_q` automatically when `record_req` drops, and both DONE and ERROR states accept immediate `record_req` re-assertion, transitioning directly to WAIT_VALID or WRITE without idle cycles. This allows seamless retry workflows where users can re-trigger recording after a timeout without manual state clearing.
 
-== Storage BRAM
+== Storage BRAM (Katalin Szentmiklosy)
 The storage module infers block RAM (`(* ram_style = "block" *)`) with separate synchronous read and write controls on a shared clock (`wr_en`, `rd_en`). Write operations update the target slot synchronously when `wr_en` is asserted. Read operations pulse `rd_valid` for exactly one cycle when `rd_en` is high, outputting data from `rd_addr`. BRAM content persists across resets; only the read interface state (`rd_data`, `rd_valid`) is cleared to prevent stale outputs.
 
  
@@ -488,7 +488,7 @@ idf.py set-target esp32c3
 idf.py build
 idf.py flash monitor
 ```
-= Chip Design Creation
+= Chip Design Creation (Katalin Szentmiklosy)
 
  
 
