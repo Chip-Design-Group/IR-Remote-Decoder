@@ -168,14 +168,14 @@ Initially, `rd_valid` remained asserted for multiple cycles when `rd_en` was hel
 
 == IRTx
 
-= My Contribution (Sauerwein Alexander)
+= Bringing up the physical hardware (Sauerwein Alexander)
 
 Bringing up the
 physical hardware prototype on the Arty A7-35T FPGA board, designing the IR receiver
 and transmitter circuits with component selection, implementing the ESP32–FPGA serial
-protocol, and building the Wi-Fi web interface.
+protocol and building the WiFi web interface.
 
-== FPGA Hardware Bring-Up (Arty A7-35T)
+== FPGA Hardware Bring Up (Arty A7-35T)
 
 The implementation was verified on a Digilent Arty A7-35T board carrying a Xilinx
 Artix-7 XC7A35T FPGA. The board provides a 100 MHz system oscillator.
@@ -194,17 +194,17 @@ The FPGA I/O pins were mapped as folliwing:
   caption: [FPGA I/O pin assignments on the Arty A7-35T],
 )
 
-Status LEDs were mapped to the four on-board RGB LEDs and used during bring-up to
+Status LEDs were mapped to the four on board RGB LEDs and used during bring up to
 verify the behavior:
 
 #figure(
   table(
     columns: (auto, auto),
     table.header([*LED*], [*Meaning*]),
-    [`LD7`], [Heartbeat — blinks at ≈ 0.8 s to confirm clock and reset are healthy],
-    [`LD6`], [IR receiving — on while `ir_in` is active (demodulator output low)],
-    [`LD4`], [Decode OK — 200 ms pulse after a valid frame is decoded],
-    [`LD5`], [Record active — fast blink (≈ 100 ms) while a slot is being recorded],
+    [`LD7`], [Heartbeat: blinks at ≈ 0.8 s to confirm clock and reset are healthy],
+    [`LD6`], [IR receiving: on while `ir_in` is active],
+    [`LD4`], [Decode OK: 200 ms pulse after a valid frame is decoded],
+    [`LD5`], [Record active: fast blink (≈ 100 ms) while a slot is being recorded],
   ),
   caption: [Debug LED assignments on the Arty A7-35T],
 )
@@ -218,16 +218,14 @@ and its I/O pins must not see more than *3.4 V* on any input
 Two problems therefore had to be solved:
 
 + *Boost the supply* from 3.3 V to 5 V for the Receiver power pin.
-+ *Level-shift the output* of the TSOP (which swings between 0 V and $V_"CC"$ = 5 V)
++ *Level shift the output* of the TSOP (which swings between 0 V and $V_"CC"$ = 5 V)
   down to a safe 3.3 V logic level before connecting it to the FPGA.
-
-Both issues are addressed by the circuit shown below.
 
 === Schematic
 
 #figure(
   image("IR-Receiver.pdf", width: 80%),
-  caption: [IR receiver circuit — 5 V power supply and output voltage divider],
+  caption: [IR receiver circuit, 5 V power supply and output voltage divider],
 ) <fig-ir-rx>
 
 === Supply network
@@ -250,7 +248,7 @@ $
 
 == IR Transmitter Circuit
 
-The Arty A7-35T only provides a *3.3 V* supply rail, and the FPGA control pin
+The Arty A7-35T only provides a *3.3 V* supply rail and the FPGA control pin
 `ir_tx_PAD` drives at 3.3 V logic levels. Because the IR LED requires
 more current than the FPGA GPIO can safely source, (the Artix-7 datasheet specifies
 a maximum of *12 mA* per output pin @artix7_ds181). An *NPN
@@ -261,7 +259,7 @@ and GND. The FPGA drives only the base current. The entire circuit is supplied a
 
 #figure(
   image("IR-Transmitter.pdf", width: 80%),
-  caption: [IR transmitter circuit — NPN driving IR LED],
+  caption: [IR transmitter circuit, NPN driving IR LED],
 ) <fig-ir-tx>
 
 === Design targets
@@ -313,24 +311,13 @@ approach has a scalability problem: At first we only wanted to support 4 remotes
 plus a record/replay command input, at least 41 GPIOs would now be required.
 The ESP32-C3 has only 22 usable GPIOs in total @esp32c3_devkitc02, making this approach impossible.
 
-Another thought was to use a binary-encoded slot address over 6 GPIO lines
+Another thought was to use a binary encoded slot address over 6 GPIO lines
 ($2^6 = 64$ addressable slots) plus one GPIO for the command (PLAY / REC).
-This would have required 7 FPGA input pins still unpractical, and any additional command types would require more pins.
+This would have required 7 FPGA input pins which is still unpractical and any additional command types would require more pins.
 
-The final design encodes the full command into a *2-wire serial frame* (DATA + CLK).
+The final design encodes the full command into a *2 wire serial frame* (DATA + CLK).
 This reduces the physical connection to the absolute minimum and the protocol can be
 extended with new command types or wider slot addresses without touching the hardware.
-
-#figure(
-  table(
-    columns: (auto, auto, 1fr),
-    table.header([*Approach*], [*GPIOs needed*], [*Drawback*]),
-    [One GPIO per slot],        [≥ 41],  [Exceeds ESP32-C3 pin count entirely],
-    [Binary slot + cmd GPIO],   [7],     [Rigid — adding commands requires more pins],
-    [2-wire serial (chosen)],   [2],     [Requires synchronous receiver on FPGA side],
-  ),
-  caption: [Interface design alternatives considered],
-)
 
 === ESP32-C3 Pin Mapping
 
@@ -345,12 +332,11 @@ extended with new command types or wider slot addresses without touching the har
   caption: [ESP32-C3 pin assignments for FPGA interface],
 )
 
-#pagebreak(weak: true)
 
 === Frame Format
 
-A 12-bit frame is transmitted MSB-first over two bit-banged GPIO lines at 500 Baud
-(1 ms per half-period, 2 ms per bit). The FPGA samples DATA on the rising CLK edge.
+A 12 bit frame is transmitted over two bit GPIO lines at 500 Baud
+(1 ms per half period, 2 ms per bit). The FPGA samples DATA on the rising CLK edge.
 
 #figure(
   canvas(length: 1cm, {
@@ -473,24 +459,21 @@ A 12-bit frame is transmitted MSB-first over two bit-banged GPIO lines at 500 Ba
   }),
   caption: [
     Timing diagram of one 12-bit serial frame \
-    (example: slot 1, PLAY command, magic `101`). \
-    #text(size: 8pt)[
-      #box(fill: blue,  width: 8pt, height: 4pt) CLK — \
-      #box(fill: red,   width: 8pt, height: 4pt) DATA — \
-      #box(fill: green.darken(20%), width: 8pt, height: 4pt) rising CLK edge (FPGA samples DATA here)
-    ]
+    (example: slot 1, PLAY command, magic `101`). 
   ],
 ) <fig-timing>
+
+#pagebreak(weak: true)
 
 #figure(
   table(
     columns: (auto, auto, auto),
     table.header([*Bits*], [*Field*], [*Description*]),
-    [11:6], [Slot address], [6-bit index — `[5:4]` = remote ID, `[3:0]` = slot number],
+    [11:6], [Slot address], [`000001` = slot 1,..., `101000` = slot 40],
     [5:3],  [Command],      [`001` = PLAY, `010` = REC],
-    [2:0],  [Magic],        [`101` — discards malformed frames on FPGA side],
+    [2:0],  [Magic],        [`101`  discards corrupted frames on FPGA],
   ),
-  caption: [12-bit serial frame layout],
+  caption: [12 bit serial frame layout],
 ) <tab-frame>
 
 === Challenge: Noise on the serial line
@@ -498,36 +481,23 @@ A 12-bit frame is transmitted MSB-first over two bit-banged GPIO lines at 500 Ba
 During testing, the FPGA occasionally received corrupted frames due to GPIO
 noise.
 
-*Solution:* The 3-bit magic field (`101`) was introduced as a lightweight frame
+*Solution:* The 3 bit magic field (`101`) was introduced as a frame
 validator. Frames not matching the magic value are discarded by the FPGA.
 
-=== ESP32-C3 Firmware
-
-The `fpga_send_frame(slot, cmd)` function in `wifi_button.c` sends the frame:
-
-```c
-// Build the 12-bit frame word
-uint16_t frame = ((slot & 0x3F) << 6) | ((cmd & 0x7) << 3) | MAGIC;
-
-// Clock out 12 bits, MSB first
-for (int i = 11; i >= 0; i--) {
-    gpio_set_level(GPIO_DATA, (frame >> i) & 1);
-    vTaskDelay(pdMS_TO_TICKS(1));   // setup: 1 ms before rising CLK edge
-    gpio_set_level(GPIO_CLK, 1);
-    vTaskDelay(pdMS_TO_TICKS(1));   // hold:  1 ms after rising CLK edge
-    gpio_set_level(GPIO_CLK, 0);
-}
-gpio_set_level(GPIO_DATA, 0);       // return to idle
-```
-
-== Wi-Fi Web Interface
+== WiFi Web Interface
 
 === Architecture
 
-The ESP32-C3 runs FreeRTOS with ESP-IDF v5.x, configured as a Wi-Fi SoftAP
-(SSID: _IR-Remote_). An `esp_http_server` instance handles all requests with
-wildcard URI matching. When a user presses a button in the browser, the HTTP handler
-calls `fpga_send_frame()` directly from the request task, keeping latency minimal.
+Initially the ESP32-C3 was connected to an existing local WiFi network and
+served the web interface from there. But during testing, the round trip latency was
+unacceptably high: the client request had to travel through the router and back before
+the FPGA command was sent, and network congestion made response times inconsistent (we waited up to 10 seconds).
+
+To eliminate the router hop entirely, the ESP32-C3 was reconfigured as a *WiFi
+SoftAP* (SSID: _IR-Remote_). The client connects directly to the ESP32, so every HTTP
+request arrives in one wireless hop and the HTTP handler can call `fpga_send_frame()`
+immediately.
+
 
 === HTTP API
 
@@ -535,7 +505,7 @@ calls `fpga_send_frame()` directly from the request task, keeping latency minima
   table(
     columns: (auto, auto, auto),
     table.header([*Method*], [*URI*], [*Action*]),
-    [`GET`],  [`/`],           [Home — overview of all 4 remotes],
+    [`GET`],  [`/`],           [Home overview of all 4 remotes],
     [`GET`],  [`/remote/N`],   [Detail page for remote _N_ (0–3)],
     [`GET`],  [`/replay/S`],   [Transmit PLAY frame for slot _S_ to FPGA],
     [`GET`],  [`/record/S`],   [Transmit REC frame for slot _S_ to FPGA],
@@ -543,16 +513,6 @@ calls `fpga_send_frame()` directly from the request task, keeping latency minima
   ),
   caption: [HTTP API endpoints],
 ) <tab-api>
-
-=== Challenge: HTML buffer truncation on the last remote card
-
-The dynamically-built HTML response was silently truncated, cutting off the last
-remote card in the browser.
-
-*Solution:* A `size_t` underflow in `snprintf` — it returns the _desired_ length even
-when the buffer is full — caused `buf_size - pos` to wrap to a huge value. The buffer
-was increased to 16 KB and all `snprintf` calls were wrapped in a `SNPRINTF_SAFE`
-macro that clamps `pos` to `buf_size` before each write.
 
 = System Parameters
 
