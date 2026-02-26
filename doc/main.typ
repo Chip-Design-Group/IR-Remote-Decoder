@@ -140,16 +140,58 @@ enabling host-side logging and testbench verification.
 
 == UART_TX
 
-Standard 8N1 UART transmitter with a `busy` handshake signal. Used for debug output
-to a host PC during development.
+The UART transmitter serializes 8-bit data into standard 8N1 frames (start bit, 8 data bits LSB-first, stop bit) for debug output to a host PC. The module implements a four-state FSM (IDLE, START, DATA, STOP) with a configurable `CLOCKS_PER_BIT` parameter to set the baud rate. Initially, a simplified version without baud interval timing was developed to verify the basic state transitions and bit serialization logic. The final implementation adds a `baud_cnt` counter that holds each bit for exactly one bit period, ensuring correct UART timing. In the IDLE state, `tx_out` remains high and `ready` is asserted. When `send_req` is triggered, `data_in` is latched into an internal shift register, and the FSM transitions through START, DATA (shifting out 8 bits via `bit_idx`), and STOP states, each waiting for the configured baud interval before advancing.
 
-=== Challenge: UART timing mismatch at higher baud rates
+ 
 
-At 115200 Baud with a 12 MHz oscillator, the baud rate divisor was not an integer,
-causing framing errors.
+#figure(
 
-*Solution:* The FPGA clock was switched to 100 MHz (PLL-derived), giving an exact
-integer divisor for all standard baud rates.
+  image("../IRDecoder/UART_TX/uart_tx.png", width: 80%),
+
+  caption: [UART TX state machine — 8N1 transmission with baud interval timing],
+
+) <fig-uart-tx-fsm>
+
+== Interface Contract
+
+Before implementation, a versioned interface contract (`ir_types_pkg.sv`) was established defining a 67-bit storage word (`ir_word_t`) that packs frame data (48 bits), frame length (6 bits), protocol ID (5 bits), and flags (8 bits). Fixed bit positions (`IR_FLAGS_LSB/MSB`, `IR_PROTOCOL_ID_LSB/MSB`, etc.) enable transparent debugging, while helper functions (`ir_pack_word`, `ir_unpack_word`) ensure consistent encoding across RTL and testbenches. The 6-bit slot address supports 40 slots (4 remotes × 10 buttons), with bits [5:4] encoding remote ID and [3:0] button number. Flag bits define slot validity (`IR_FLAG_VALID_BIT`) and repeat mode (`IR_FLAG_REPEAT_BIT`), with reserved bits for future extensions. This contract eliminated bit-slicing errors between recorder, storage, and replay modules during parallel development.
+
+== Recorder
+
+The recorder implements a five-state FSM (IDLE, WAIT_VALID, WRITE, DONE, ERROR) that accepts decoded NEC payloads and writes them to storage BRAM. When `record_req` is asserted, the module latches `target_slot` and waits for `dec_valid`. Initially, a simplified version without timeout handling was developed to verify basic state transitions and payload packing. The final implementation adds a configurable `WAIT_TIMEOUT_CYCLES` parameter (default 256): if no valid frame arrives, the FSM transitions to ERROR and pulses the error flag for one cycle. On success, `ir_pack_word()` serializes the payload into `ir_word_t` format, triggering a single-cycle `mem_wr_en` pulse. The `busy` signal remains high during WAIT_VALID and WRITE to prevent concurrent requests.
+
+ 
+
+#figure(
+
+  image("../IRRecorder_Replay/Recorder/ir_recorder.png", width: 90%),
+
+  caption: [IR Recorder FSM — timeout handling and back-to-back request support],
+
+) <fig-ir-recorder-fsm>
+
+Early implementations required manual timeout counter resets when `record_req` was deasserted mid-wait, leaving stale error flags. Additionally, the FSM forced an extra idle cycle between consecutive requests, reducing throughput. The final design resets `wait_cnt_q` automatically when `record_req` drops, and both DONE and ERROR states accept immediate `record_req` re-assertion, transitioning directly to WAIT_VALID or WRITE without idle cycles. This allows seamless retry workflows where users can re-trigger recording after a timeout without manual state clearing.
+
+== Storage BRAM
+The storage module infers block RAM (`(* ram_style = "block" *)`) with separate synchronous read and write controls on a shared clock (`wr_en`, `rd_en`). Write operations update the target slot synchronously when `wr_en` is asserted. Read operations pulse `rd_valid` for exactly one cycle when `rd_en` is high, outputting data from `rd_addr`. BRAM content persists across resets; only the read interface state (`rd_data`, `rd_valid`) is cleared to prevent stale outputs.
+
+ 
+
+#figure(
+
+  image("../IRRecorder_Replay/STORAGE_BRAM/ir_storage_bram.png", width: 75%),
+
+  caption: [Storage BRAM operation flow — single-cycle read/write with persistent storage],
+
+) <fig-ir-storage-bram>
+
+Initially, `rd_valid` remained asserted for multiple cycles when `rd_en` was held high, violating the single-cycle pulse contract defined in `ir_types_pkg`. The final implementation explicitly deasserts `rd_valid` at the start of each clock cycle and only reasserts it when `rd_en` is sampled, ensuring strict single-cycle pulse behavior regardless of input hold time. This matches the handshake protocol expected by downstream modules (e.g., IR player) and prevents spurious read acknowledgments.
+
+== IRReplayFSM
+
+== NECEncoder
+
+== IRTx
 
 = My Contribution (Sauerwein Alexander)
 
@@ -446,6 +488,111 @@ idf.py set-target esp32c3
 idf.py build
 idf.py flash monitor
 ```
+= Chip Design Creation
+
+ 
+
+Chip creation was performed using LibreLane with the IHP SG13G2 PDK. Initially, LibreLane v2.4.13 (main branch, commit aa0c518b) was used, where the chip flow failed with `Unknown flow 'Chip'`, as the chip flow was only available in newer versions. After switching to the dev environment (LibreLane v3.0.0.dev50, commit c771c564), the chip flow became available. To avoid inconsistencies between team members, a unified tool version was established (identical LibreLane commit, shared Nix shell environment).
+
+ 
+
+== Baseline Implementation Without Padframe
+
+ 
+
+The initial chip creation followed the lecture template and used a simplified architecture without ESP32 interface to first verify the basic chip flow. The configuration was built up incrementally: `meta.flow` switched to `Chip`, `PNR_SDC_FILE` and `SIGNOFF_SDC_FILE` explicitly set, `DIE_AREA` and `CORE_AREA` initially dimensioned generously (`[0, 0, 2000, 2000]` and `[500, 500, 1500, 1500]` respectively) to avoid placement issues during development. Initially, `ERROR_ON_SYNTH_CHECKS: false` was used, which caused unconnected nets to only become visible in late DRC stages. After enabling `ERROR_ON_SYNTH_CHECKS: true`, synthesis warnings became hard errors, immediately detecting an unconnected `clk_core` port that was then explicitly bound to `clk`.
+
+ 
+
+#figure(
+
+  image("chip_without_padframe.jpeg", width: 85%),
+
+  caption: [Chip layout without padframe — initial core placement],
+
+) <fig-chip-no-padframe>
+
+ 
+
+== Padframe Integration
+
+ 
+
+A dedicated wrapper (`ir_recorder_replay_padframe_top.sv`) was created that instantiates IHP SG13G2 IO pads (`sg13g2_IOPadIn`, `sg13g2_IOPadOut30mA`) and connects them to the core via `.pad`/`.p2c`/`.c2p` ports. Four mandatory power pads (`u_vdd_pad`, `u_vss_pad`, `u_iovdd_pad`, `u_iovss_pad`) were added, with their PG pins left implicit for synthesis compatibility, as explicit power pin connections caused errors in early synthesis stages. Pad placement was switched to real instance names (`u_pad_clk`, `u_pad_rst_n` instead of generic names), with the ordering defined via `PAD_WEST`/`EAST`/`NORTH`/`SOUTH` in `config.yaml`. Initially, `CORE_AREA` used non-grid-snapped values, leading to IFP-0028 warnings. The final values were set to grid coordinates (`[342.74, 343.71, 997.52, 994.95]`) to eliminate these warnings.
+
+ 
+
+The PDN setup was configured through `PDN_ENABLE_PINS: true`, `PDN_CORE_RING: true`, and `PDN_CORE_RING_CONNECT_TO_PADS: false`, where the core ring is manually connected to pads via stripes. Ring widths were incrementally increased from initial 8 µm to final 15 µm until power grid violations were reduced to zero. SDC constraints were converted to `get_ports {...}` syntax (instead of `get_pins`) to correctly reference at pad level, and extended with symmetric IO delays for `inout` pads (`set_input_delay`/`set_output_delay` for `io_spi_data_pad`). Initially, erroneous `set_input_delay` definitions were set on `io_clk_pad` (clock port), leading to timing warnings, and were removed.
+
+ 
+
+#figure(
+
+  image("chip_small_with_padframe.jpeg", width: 85%),
+
+  caption: [Chip layout with padframe — before architecture extensions],
+
+) <fig-chip-small-padframe>
+
+ 
+
+== Architecture Extension
+
+ 
+
+After successful baseline with padframe, the architecture was extended: ESP32 SPI interface (`esp32_spi_receiver.sv`), multi-protocol support, and `raw_pulse_uart_formatter.sv` were added. Slot address widths were consistently changed to `ir_slot_t` (6 bit), as different modules initially used different widths (`[2:0]` in `ir_replay_fsm`, 6 bit in `esp32_spi_receiver`), leading to synthesis warnings about bit truncations. ESP32 SPI commands asserted `esp_slot_addr` for only one clock cycle, while the core logic required multiple cycles for processing. A latch (`esp_slot_addr_lat`) was introduced during integration to stabilize the address pulse; in the current implementation, `combined_slot_sel` is selected directly from `esp_slot_addr` on ESP request pulses. The top-level hierarchy was structured in two levels: `ir_recorder_replay_chip_top.sv` instantiates the core logic and combines external pad requests with ESP32 commands (`combined_record_req = record_req | esp_record_req`), while status signals (`stat_receiving`, `stat_code_valid`, `stat_record_active`) were mapped directly to output pads and handshake signals (`rec_done`, `rep_done`, `busy`, `error`) were marked as `_unused`.
+
+ 
+
+Congestion issues were resolved through iterative adjustment of `PL_TARGET_DENSITY_PCT: 35` (initially 50%), `GPL_CELL_PADDING: 4`, `GRT_OVERFLOW_ITERS: 200`, and `DRT_OPT_ITERS: 64`. `RUN_POST_GRT_RESIZER_TIMING: true` enabled post-GRT timing repair, while `WIRE_LENGTH_THRESHOLD: 2000` was increased to avoid deferred wire-length aborts (longest observed wire: ~1613 µm at `io_spi_data_pad`). Antenna repair was configured through `GRT_ANTENNA_REPAIR_ITERS: 12`, `GRT_ANTENNA_REPAIR_MARGIN: 50`, and `GRT_ANTENNA_REPAIR_DIODE_ONLY: true` to fix antenna violations through diode insertion.
+
+ 
+
+#figure(
+
+  image("chip_big_with_padframe.jpeg", width: 85%),
+
+  caption: [Extended chip layout with padframe — architecture with ESP32 interface and multi-protocol support],
+
+) <fig-chip-big-padframe>
+
+ 
+
+== Bondpad Integration and Area Optimization
+
+ 
+
+70×70 µm bondpads from the provided `bondpad` folder were integrated via `PAD_BONDPAD_NAME: bondpad_70x70`, `EXTRA_GDS`, and `EXTRA_LEFS`. `PAD_PLACE_IO_TERMINALS` was set to `bondpad_70x70/pad` (explicit pin name) to avoid multi-pin BTerm errors that occurred when OpenROAD found multiple pins in the bondpad macro. Disconnected pin handling was tightened: blanket ignores (`IGNORE_DISCONNECTED_PINS: true`) were removed and replaced with targeted `IGNORE_DISCONNECTED_MODULES: [bondpad_70x70]`, while `ERROR_ON_DISCONNECTED_PINS: true` was set to immediately detect unconnected pins in core logic. Initially, slew warnings appeared at `io_uart_tx_pad` (max slew: 1.87 ns, limit: 1.5 ns) and `io_ir_tx_npn_drive_pad` (max slew: 2.13 ns). Buffer insertion (`sg13g2_buf_8`) was tested but only improved values marginally (1.87 → 1.82 ns), so the change was reverted as the warnings were within acceptable margins and caused no functional issues.
+
+ 
+
+`DIE_AREA` and `CORE_AREA` were incrementally reduced to minimize chip area. In early project iterations, generous die areas up to 2000×2000 µm² were used, leading to unnecessarily high chip costs. Incremental reduction to final 1340×1340 µm² reduced die area by 55%, with congestion and timing checks performed after each iteration to ensure the reduction caused no routing problems. PDN obstructions (`PDN_OBSTRUCTIONS`, `ROUTING_OBSTRUCTIONS`) were set to `[TopMetal2, 495, 500, 845, 720]` to keep the reserved logo area free on TopMetal2.
+
+ 
+
+#figure(
+
+  image("final_chipdesign.jpeg", width: 85%),
+
+  caption: [Final optimized chip layout — with bondpads and reduced die area],
+
+) <fig-chip-final>
+
+ 
+
+== Fast vs. Signoff Configuration
+
+ 
+
+To accelerate development, two configurations were established: `config_fast.yaml` for rapid iterations (development cycles of ~15 min instead of ~2 hrs) and `config_signoff.yaml` for final verification. Both configs share identical design parameters (`CLOCK_PERIOD: 100`, `VERILOG_FILES`, `DIE_AREA`, PDN setup) but differ in `meta.substituting_steps`. `config_fast.yaml` skips expensive checks (DRC, Antenna, LVS, Density) to enable fast design iterations, while `config_signoff.yaml` activates all checks and only skips known issues (Magic overlap in bondpad regions, density checks). This split enabled rapid testing of design changes during development (e.g., congestion parameters, pad placement) and final verification only for stable designs.
+
+ 
+
+== Final Configuration
+
+ 
+
+The final signoff configuration uses `ir_recorder_replay_padframe_top` as top-level module with 100 ns clock period (10 MHz) and `CLOCK_PORT: io_clk_pad`. Pads are distributed across four sides: 5 West (clk, rst_n, ir_in, spi_clk, spi_data), 3 East (ir_tx, uart_tx, receiving), 2 North (valid, recording), with each pad connected to 70×70 µm bondpads (`bondpad_70x70`). The PDN uses a 15 µm core ring with 3.5 µm stripes at 40 µm pitch, while placement is configured with 35% target density and 4-cell padding. Routing uses 200 GRT iterations and 64 DRT iterations, with timing constraints specifying max fanout 16, max transition 1.25 ns, and buffer cell `sg13g2_buf_4`. The final signoff flow (`make librelane-signoff`) runs without blocking errors in the enabled checks; some checks (e.g., Magic DRC and selected density/overlap checks) remain intentionally substituted in the current signoff profile.
 
 = Conclusion & Outlook
 

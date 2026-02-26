@@ -1,13 +1,13 @@
 <mxfile host="65bd71144e">
     <diagram id="uart_tx_correct" name="UART_TX_Flow">
-        <mxGraphModel dx="1220" dy="633" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+        <mxGraphModel dx="660" dy="465" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="idle" value="IDLE&#xa;tx=1, ready=1, busy=0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e6f1;strokeWidth=2;" parent="1" vertex="1">
+                <mxCell id="idle" value="IDLE&lt;br&gt;tx=1, ready=1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="80" y="325" width="150" height="80" as="geometry"/>
                 </mxCell>
-                <mxCell id="decision1" value="send_req == 1?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fdebd0;strokeWidth=2;" parent="1" vertex="1">
+                <mxCell id="decision1" value="send_req == 1?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="280" y="315" width="120" height="100" as="geometry"/>
                 </mxCell>
                 <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="idle" target="decision1" edge="1">
@@ -21,31 +21,31 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="startbit" value="START BIT&#xa;tx=0, ready=0, busy=1&#xa;bit_cnt=0, baud_cnt=0&#xa;shift_reg=data_in" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f4e6;strokeWidth=2;" parent="1" vertex="1">
+                <mxCell id="startbit" value="START BIT&lt;br&gt;tx=0, ready=0,&lt;br&gt;bit_cnt=0, baud_cnt=0&lt;br&gt;shift_reg=data_in" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="500" y="315" width="160" height="100" as="geometry"/>
                 </mxCell>
                 <mxCell id="e3" value="Ja" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;" parent="1" source="decision1" target="startbit" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="wait1" value="Warte 1 Baud&#xa;Intervall" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9e7;strokeWidth=1;dashed=true;" parent="1" vertex="1">
+                <mxCell id="wait1" value="Warte 1 Baud&#xa;Intervall" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=1;dashed=true;" parent="1" vertex="1">
                     <mxGeometry x="520" y="480" width="120" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="startbit" target="wait1" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="decision2" value="bit_cnt &lt; 8?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fdebd0;strokeWidth=2;" parent="1" vertex="1">
+                <mxCell id="decision2" value="bit_cnt &lt; 8?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="520" y="640" width="120" height="100" as="geometry"/>
                 </mxCell>
                 <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="wait1" target="decision2" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="databit" value="DATENBIT&#xa;tx=shift_reg[0]&#xa;ready=0, busy=1&#xa;shift_reg &gt;&gt; 1&#xa;bit_cnt++" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f4e6;strokeWidth=2;" parent="1" vertex="1">
+                <mxCell id="databit" value="DATENBIT&lt;br&gt;tx=shift_reg[0]&lt;br&gt;ready=0,&lt;br&gt;shift_reg &amp;gt;&amp;gt; 1&lt;br&gt;bit_cnt++" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="500" y="800" width="160" height="100" as="geometry"/>
                 </mxCell>
                 <mxCell id="e6" value="Ja" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;" parent="1" source="decision2" target="databit" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="wait2" value="Warte 1 Baud&#xa;Intervall" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9e7;strokeWidth=1;dashed=true;" parent="1" vertex="1">
+                <mxCell id="wait2" value="Warte 1 Baud&#xa;Intervall" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=1;dashed=true;" parent="1" vertex="1">
                     <mxGeometry x="760" y="815" width="120" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="databit" target="wait2" edge="1">
@@ -60,7 +60,7 @@
                         <mxPoint x="670.0000000000002" y="700" as="targetPoint"/>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="stopbit" value="STOPBIT&#xa;tx=1, ready=0, busy=1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f4e6;strokeWidth=2;" parent="1" vertex="1">
+                <mxCell id="stopbit" value="STOPBIT&lt;br&gt;tx=1, ready=0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="75" y="810" width="160" height="80" as="geometry"/>
                 </mxCell>
                 <mxCell id="e9" value="Nein&#xa;(bit_cnt==8)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="decision2" target="stopbit" edge="1">
@@ -71,7 +71,7 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="wait3" value="Warte 1 Baud&#xa;Intervall" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9e7;strokeWidth=1;dashed=true;" parent="1" vertex="1">
+                <mxCell id="wait3" value="Warte 1 Baud&#xa;Intervall" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=1;dashed=true;" parent="1" vertex="1">
                     <mxGeometry x="95" y="480" width="120" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="stopbit" target="wait3" edge="1">
@@ -86,9 +86,6 @@
                         </Array>
                         <mxPoint x="590" y="550" as="sourcePoint"/>
                     </mxGeometry>
-                </mxCell>
-                <mxCell id="legend" value="&lt;b&gt;UART TX Zustandsdiagramm (8N1)&lt;/b&gt;&lt;br&gt;• &lt;b&gt;tx&lt;/b&gt;: Ausgabeleitung (HIGH=idle/stop, LOW=start)&lt;br&gt;• &lt;b&gt;ready&lt;/b&gt;: 1 nur im Idle-Zustand, sonst 0 während Transmission&lt;br&gt;• &lt;b&gt;busy&lt;/b&gt;: 1 während Transmission (Start, Daten, Stop)&lt;br&gt;• Datenbits: LSB first (bit_counter: 0-7)&lt;br&gt;• Nach jedem Bit: 1 Baud-Intervall warten" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fillColor=#f0f0f0;strokeWidth=1;fontSize=9;" parent="1" vertex="1">
-                    <mxGeometry x="50" y="10" width="900" height="80" as="geometry"/>
                 </mxCell>
             </root>
         </mxGraphModel>
