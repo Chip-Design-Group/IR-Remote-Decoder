@@ -1100,19 +1100,19 @@ The final signoff configuration uses `ir_recorder_replay_padframe_top` as top-le
 
 = Conclusion & Outlook
 
-== Evolution & Reliability (Maik Unglert)
+== Evolution & Reliability 
 
 What began as a small NEC-only decoder evolved into a complete infrared control system featuring recording, storage, and replay functionality. The final implementation combines multi-protocol decoding on an FPGA with an ESP32-C3–based web interface, enabling commands to be captured and replayed directly from a smartphone browser. This integration bridges low-level hardware design with user-friendly interaction.
 
 The most important outcome of the project is its practical reliability. The system does not merely function in simulation; it operates consistently on real hardware, handling real remote controls and real-world signal variations with stable performance.
 
-== Technical Insights (Lukas Mittermeier)
+== Technical Insights 
 
 From a Verilog design perspective, clearly defined module boundaries and stable interfaces were crucial to success. The decoder, recorder, replay finite state machine, and encoder were each implemented and verified independently before full system integration. This modular approach significantly reduced integration risks and accelerated debugging.
 
 Parameterized timing logic also proved to be essential. It allowed the same core design to transition smoothly from simulation to deployment on a 100 MHz FPGA without requiring fundamental behavioral changes. This portability highlights the importance of abstraction and scalable design in digital systems engineering.
 
-== Reflections & Future Work (Maik Unglert)
+== Reflections & Future Work 
 
 Beyond the technical achievements, the project was particularly enjoyable due to the strong teamwork throughout the development phase. Responsibilities remained flexible, collaboration was seamless, and mutual support was a constant. In practice, everyone contributed across boundaries, which ensured steady progress and simplified system integration.
 
