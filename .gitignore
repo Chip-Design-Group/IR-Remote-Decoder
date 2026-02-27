@@ -23,6 +23,8 @@ vivado_project/
 *.jou
 /TopLevel/vivado*
 /TopLevel/src/runs/
+
+runs/
 /TopLevel/runs/*
 wifi_button/build
 *.log
@@ -33,3 +35,4 @@ wifi_button/build
 *.tmp
 *.rpt
 
+wifi_button/

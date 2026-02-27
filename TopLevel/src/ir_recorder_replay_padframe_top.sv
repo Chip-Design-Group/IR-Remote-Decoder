@@ -7,11 +7,10 @@ module ir_recorder_replay_padframe_top (
   inout wire io_clk_pad,
   inout wire io_rst_n_pad,
   inout wire io_ir_in_pad,
-  inout wire io_record_req_pad,
-  inout wire io_replay_req_pad,
-  inout wire io_slot_sel_0_pad,
-  inout wire io_slot_sel_1_pad,
-  inout wire io_slot_sel_2_pad,
+
+  // ESP32-C3 Software-SPI interface
+  inout wire io_spi_clk_pad,
+  inout wire io_spi_data_pad,
 
   inout wire io_ir_tx_npn_drive_pad,
   inout wire io_uart_tx_pad,
@@ -22,10 +21,8 @@ module ir_recorder_replay_padframe_top (
   wire core_clk;
   wire core_rst_n;
   wire core_ir_in;
-  wire core_record_req;
-  wire core_replay_req;
-  wire [2:0] core_slot_sel;
-
+  wire core_spi_clk;
+  wire core_spi_data;
   wire core_ir_tx_npn_drive;
   wire core_uart_tx;
   wire core_receiving;
@@ -44,11 +41,8 @@ module ir_recorder_replay_padframe_top (
   sg13g2_IOPadIn u_pad_clk        (.pad(io_clk_pad),        .p2c(core_clk));
   sg13g2_IOPadIn u_pad_rst_n      (.pad(io_rst_n_pad),      .p2c(core_rst_n));
   sg13g2_IOPadIn u_pad_ir_in      (.pad(io_ir_in_pad),      .p2c(core_ir_in));
-  sg13g2_IOPadIn u_pad_record_req (.pad(io_record_req_pad), .p2c(core_record_req));
-  sg13g2_IOPadIn u_pad_replay_req (.pad(io_replay_req_pad), .p2c(core_replay_req));
-  sg13g2_IOPadIn u_pad_slot_sel_0 (.pad(io_slot_sel_0_pad), .p2c(core_slot_sel[0]));
-  sg13g2_IOPadIn u_pad_slot_sel_1 (.pad(io_slot_sel_1_pad), .p2c(core_slot_sel[1]));
-  sg13g2_IOPadIn u_pad_slot_sel_2 (.pad(io_slot_sel_2_pad), .p2c(core_slot_sel[2]));
+  sg13g2_IOPadIn u_pad_spi_clk    (.pad(io_spi_clk_pad),    .p2c(core_spi_clk));
+  sg13g2_IOPadIn u_pad_spi_data   (.pad(io_spi_data_pad),   .p2c(core_spi_data));
 
   // Outputs
   sg13g2_IOPadOut30mA u_pad_ir_tx_npn_drive (.pad(io_ir_tx_npn_drive_pad), .c2p(core_ir_tx_npn_drive));
@@ -61,9 +55,11 @@ module ir_recorder_replay_padframe_top (
     .clk(core_clk),
     .rst_n(core_rst_n),
     .ir_in(core_ir_in),
-    .record_req(core_record_req),
-    .replay_req(core_replay_req),
-    .slot_sel(core_slot_sel),
+    .spi_clk(core_spi_clk),
+    .spi_data(core_spi_data),
+    .record_req(1'b0),
+    .replay_req(1'b0),
+    .slot_sel(6'd0),
     .ir_tx_npn_drive(core_ir_tx_npn_drive),
     .uart_tx(core_uart_tx),
     .receiving(core_receiving),

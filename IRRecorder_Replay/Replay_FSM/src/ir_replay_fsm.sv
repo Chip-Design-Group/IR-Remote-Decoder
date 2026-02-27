@@ -26,7 +26,7 @@ module ir_replay_fsm #(
   input  logic                  rst_n,
 
   input  logic                  replay_req,
-  input  logic [2:0]            target_slot,
+  input  ir_slot_t              target_slot,
 
   output logic                  mem_rd_en,
   output ir_slot_t              mem_rd_addr,
@@ -58,7 +58,7 @@ module ir_replay_fsm #(
   logic replay_req_q;
   logic replay_req_rise;
 
-  logic [2:0]               slot_q, slot_d;
+  ir_slot_t                 slot_q, slot_d;
   ir_word_t                  word_q, word_d;
   ir_payload_t               payload_q, payload_d;
 

@@ -34,7 +34,7 @@ module ir_recorder_replay_top #(
 
   input  logic                  record_req,
   input  logic                  replay_req,
-  input  logic [2:0]            slot_sel,
+  input  ir_slot_t              slot_sel,
 
   // Externer Decoder-Bypass fuer Integrationstests/Debug.
   input  logic                  use_external_decoder_data,

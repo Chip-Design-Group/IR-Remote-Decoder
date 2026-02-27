@@ -15,6 +15,23 @@ This repository contains the complete source code for a hardware-based Infrared 
 - **Comprehensive Test Suite** based on Python and CocoTB.
 - **IR Recording & Replay** capabilities.
 
+## 🎛️ Supported Remotes
+
+![Supported Remotes](docs/images/supported_remotes.jpeg)
+
+The decoder core supports multiple variants of the pulse-distance protocol:
+
+1.  **NEC Standard** (e.g. standard TV remotes, Arduino kits)
+    *   Carrier: 38 kHz
+    *   Leader: 9ms Mark, 4.5ms Space
+    *   32-bit payload (Address + Command)
+2.  **Samsung32 & Samsung36**
+    *   Pulse-distance protocol similar to NEC but with different leader/sync timings
+    *   32-bit (Samsung32) or 36-bit (Samsung36) payload
+3.  **N8X2** (Project-specific designation)
+    *   A custom name for the protocol used by common cheap RGB LED remote controllers (24/44 keys)
+    *   NEC-like structure but with significantly shorter bit timings (approx. 1.0 ms for '1')
+
 ## 📂 Structure
 
 The project is modular. Each module resides in its own subdirectory with source code, tests, and documentation.

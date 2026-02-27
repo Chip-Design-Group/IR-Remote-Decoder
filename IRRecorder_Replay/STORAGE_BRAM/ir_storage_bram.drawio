@@ -1,0 +1,86 @@
+<mxfile host="65bd71144e">
+    <diagram id="ir_storage_bram_flow" name="IR_Storage_BRAM_Flow">
+        <mxGraphModel dx="1066" dy="751" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="reset" value="Reset&#xa;rd_data=0&#xa;rd_valid=0&#xa;(mem bleibt erhalten)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="100" width="220" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="clk" value="posedge clk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="380" y="125" width="130" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="rstdec" value="rst_n == 0?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="570" y="110" width="130" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="default" value="rd_valid = 0&#xa;(Default pro Takt)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="770" y="115" width="180" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="wrdec" value="wr_en == 1?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="1010" y="110" width="130" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="write" value="mem[wr_addr] = wr_data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="1180" y="185" width="180" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="rddec" value="rd_en == 1?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="1010" y="260" width="130" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="read" value="rd_data = mem[rd_addr]&#xa;rd_valid = 1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="985" y="400" width="180" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="loop" value="Nächster Takt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="560" y="410" width="160" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="reset" target="clk" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="clk" target="rstdec" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" value="ja" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="rstdec" target="reset" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="635" y="60"/>
+                            <mxPoint x="200" y="60"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e4" value="nein" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="rstdec" target="default" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="default" target="wrdec" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" value="ja" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="wrdec" target="write" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" value="nein" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="wrdec" target="rddec" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1075" y="305"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="write" target="rddec" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e9" value="ja" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="rddec" target="read" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e10" value="nein" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="rddec" target="loop" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="read" target="loop" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="loop" target="clk" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="445" y="450"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

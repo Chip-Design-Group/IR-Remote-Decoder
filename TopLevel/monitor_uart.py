@@ -21,7 +21,7 @@ def find_serial_ports():
     ports = [p.device for p in serial.tools.list_ports.comports()]
     return ports
 
-def read_from_port(port, baudrate=1000000, verbose=False):
+def read_from_port(port, baudrate=1000000, verbose=False, no_warnings=False):
     def process_frame(frame_bytes: bytes):
         if (
             FRAME_RE_NEW.match(frame_bytes)
@@ -96,8 +96,9 @@ def read_from_port(port, baudrate=1000000, verbose=False):
                     dropped_history.append(dropped_fragment)
                     buf = buf[newline_pos + 1 :]
             if dropped_bytes >= 32:
-                summary = summarize_drops(dropped_history)
-                print(f"Warning: dropped {dropped_bytes} unsynced/invalid bytes{summary}")
+                if not no_warnings:
+                    summary = summarize_drops(dropped_history)
+                    print(f"Warning: dropped {dropped_bytes} unsynced/invalid bytes{summary}")
                 dropped_bytes = 0
                 dropped_history.clear()
     except serial.SerialException as e:
@@ -118,6 +119,7 @@ if __name__ == "__main__":
     parser.add_argument("port", nargs="?", help="Serial port (e.g. /dev/ttyUSB1)")
     parser.add_argument("--baud", type=int, default=1000000, help="Baud rate (default: 1000000)")
     parser.add_argument("--verbose", action="store_true", help="Print every received byte")
+    parser.add_argument("--no-warnings", action="store_true", help="Suppress dropped/unsynced byte warnings")
     args = parser.parse_args()
 
     ports = find_serial_ports()
@@ -135,4 +137,4 @@ if __name__ == "__main__":
     
     print(f"Found ports: {ports}")
     print(f"Trying to read from: {target_port}")
-    read_from_port(target_port, baudrate=args.baud, verbose=args.verbose)
+    read_from_port(target_port, baudrate=args.baud, verbose=args.verbose, no_warnings=args.no_warnings)

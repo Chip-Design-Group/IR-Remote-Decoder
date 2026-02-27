@@ -1,0 +1,138 @@
+meta:
+  version: 3
+  flow: Chip
+  substituting_steps:
+    # Magic reports some overlaps which can be ignored
+    Checker.IllegalOverlap: null
+    # Not working correctly
+    KLayout.SealRing: null
+    # Disable magic DRC
+    Magic.DRC: null
+    Checker.MagicDRC: null
+    # Disable KLayout density check
+    KLayout.Density: null
+    Checker.KLayoutDensity: null
+
+    # you can uncomment this for the flow to be faster. Comment it again in the final run.
+    KLayout.DRC: null
+    Checker.KLayoutDRC: null
+
+    # you can uncomment this for the flow to be faster. Comment it again in the final run.
+    KLayout.Antenna: null
+    Checker.KLayoutAntenna: null
+
+    # you can uncomment this for the flow to be faster. Comment it again in the final run.
+    OpenROAD.IRDropReport: null
+    KLayout.XOR: null
+    Netgen.LVS: null
+    Checker.LVS: null
+
+DESIGN_NAME: ir_recorder_replay_padframe_top
+USE_SLANG: true
+
+VERILOG_FILES:
+  - dir::../IRRecorder_Replay/Types_PKG/src/ir_types_pkg.sv
+  - dir::../IRDecoder/EdgeDetector/src/edge_detector.sv
+  - dir::../IRDecoder/PulseTimer/src/pulse_timer.sv
+  - dir::../IRDecoder/NECDecoder/src/nec_decoder.sv
+  - dir::../IRDecoder/OutputFormatter/src/output_formatter.sv
+  - dir::../IRDecoder/UART_TX/src/uart_tx.sv
+  - dir::../IRRecorder_Replay/Recorder/src/ir_recorder.sv
+  - dir::../IRRecorder_Replay/STORAGE_BRAM/src/ir_storage_bram.sv
+  - dir::../IRRecorder_Replay/Replay_FSM/src/ir_replay_fsm.sv
+  - dir::../IRRecorder_Replay/nec_encoder/src/nec_encoder.sv
+  - dir::../IRRecorder_Replay/TX/src/ir_tx.sv
+  - dir::src/esp32_spi_receiver.sv
+  - dir::raw_pulse_uart_formatter.sv
+  - dir::src/ir_recorder_replay_top.sv
+  - dir::src/ir_recorder_replay_chip_top.sv
+  - dir::src/ir_recorder_replay_padframe_top.sv
+
+CLOCK_PORT: io_clk_pad
+CLOCK_PERIOD: 100
+PNR_SDC_FILE: dir::src/constraints/pnr.sdc
+SIGNOFF_SDC_FILE: dir::src/constraints/signoff.sdc
+
+FP_SIZING: absolute
+DIE_AREA: [0, 0, 1340, 1340]
+CORE_AREA: [342.74, 343.71, 997.52, 994.95]
+
+
+VDD_NETS: ["VDD"]
+GND_NETS: ["VSS"]
+
+PDN_CORE_RING: true
+PDN_CORE_RING_CONNECT_TO_PADS: false
+PDN_ENABLE_PINS: true
+PDN_CORE_RING_VWIDTH: 15
+PDN_CORE_RING_HWIDTH: 15
+PDN_CORE_RING_VSPACING: 2.5
+PDN_CORE_RING_HSPACING: 2.5
+PDN_CORE_RING_VOFFSET: 2.5
+PDN_CORE_RING_HOFFSET: 2.5
+PDN_VPITCH: 40
+PDN_HPITCH: 40
+PDN_VWIDTH: 3.5
+PDN_HWIDTH: 3.5
+PDN_VSPACING: 2.5
+PDN_HSPACING: 2.5
+PDN_VOFFSET: 2.5
+PDN_HOFFSET: 2.5
+ERROR_ON_PDN_VIOLATIONS: false
+RUN_POST_GRT_RESIZER_TIMING: true
+PDN_OBSTRUCTIONS:
+  - [TopMetal2, 495, 500, 845, 720]
+ROUTING_OBSTRUCTIONS:
+  - [TopMetal2, 495, 500, 845, 720]
+
+PRIMARY_GDSII_STREAMOUT_TOOL: klayout
+PAD_BONDPAD_NAME: bondpad_70x70
+PAD_SITE_NAME: sg13g2_ioSite
+PAD_CORNER_SITE_NAME: sg13g2_ioSite
+
+EXTRA_GDS: dir::bondpad/bondpad_70x70.gds
+EXTRA_LEFS: dir::bondpad/bondpad_70x70.lef
+
+PL_TARGET_DENSITY_PCT: 35
+GPL_CELL_PADDING: 4
+GRT_OVERFLOW_ITERS: 200
+DRT_OPT_ITERS: 64
+GRT_ANTENNA_REPAIR_ITERS: 12
+GRT_ANTENNA_REPAIR_MARGIN: 50
+GRT_ANTENNA_REPAIR_DIODE_ONLY: true
+MAX_FANOUT_CONSTRAINT: 16
+SYNTH_BUFFER_CELL: "sg13g2_buf_4/A/X"
+GRT_RESIZER_SETUP_MAX_BUFFER_PCT: 100
+GRT_RESIZER_HOLD_MAX_BUFFER_PCT: 100
+MAX_TRANSITION_CONSTRAINT: 1.25
+ERROR_ON_SYNTH_CHECKS: true
+# Longest observed wire in fast runs is currently ~1613um; keep margin to avoid deferred false-fail.
+WIRE_LENGTH_THRESHOLD: 2000
+
+PAD_WEST:
+  - u_pad_clk
+  - u_pad_rst_n
+  - u_pad_ir_in
+  - u_pad_spi_clk
+  - u_pad_spi_data
+
+PAD_SOUTH: []
+
+PAD_EAST:
+  - u_pad_ir_tx_npn_drive
+  - u_pad_uart_tx
+  - u_pad_receiving
+
+PAD_NORTH:
+  - u_pad_valid
+  - u_pad_recording
+
+PAD_PLACE_IO_TERMINALS:
+  - "bondpad_70x70/pad"
+
+IGNORE_DISCONNECTED_MODULES:
+  # Odb.ReportDisconnectedPins matches master/module names, not instance names.
+  # Bondpad instances are IO_BOND_* but master name is bondpad_70x70.
+  - bondpad_70x70
+
+ERROR_ON_DISCONNECTED_PINS: true
