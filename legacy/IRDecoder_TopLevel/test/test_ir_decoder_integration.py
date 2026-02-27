@@ -14,7 +14,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer, ClockCycles, First
 from cocotb_tools.runner import get_runner
 
-from test_helpers import (
+from test_legacy_helpers import (
     send_nec_ir_frame,
     send_nec_repeat,
     collect_uart_string,

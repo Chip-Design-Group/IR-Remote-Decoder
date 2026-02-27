@@ -6,8 +6,10 @@ create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports { c
 set_property -dict { PACKAGE_PIN A8    IOSTANDARD LVCMOS33 } [get_ports { rst_n_PAD }]
 
 ## Buttons
-set_property -dict { PACKAGE_PIN C9    IOSTANDARD LVCMOS33 } [get_ports { btn_record_PAD }]
-set_property -dict { PACKAGE_PIN B8    IOSTANDARD LVCMOS33 } [get_ports { btn_replay_PAD }]
+set_property -dict { PACKAGE_PIN D9    IOSTANDARD LVCMOS33 } [get_ports { btn0_PAD }]
+set_property -dict { PACKAGE_PIN C9    IOSTANDARD LVCMOS33 } [get_ports { btn1_PAD }]
+set_property -dict { PACKAGE_PIN B9    IOSTANDARD LVCMOS33 } [get_ports { btn2_PAD }]
+set_property -dict { PACKAGE_PIN B8    IOSTANDARD LVCMOS33 } [get_ports { btn3_PAD }]
 
 ## LEDs (mapped to former led[4..7] pins used by existing project)
 set_property -dict { PACKAGE_PIN H5    IOSTANDARD LVCMOS33 } [get_ports { led4_PAD }]
@@ -24,8 +26,3 @@ set_property -dict { PACKAGE_PIN G13   IOSTANDARD LVCMOS33 } [get_ports { ir_in_
 set_property PULLUP true [get_ports { ir_in_PAD }]
 ## IR transmitter drive on JA2
 set_property -dict { PACKAGE_PIN B11   IOSTANDARD LVCMOS33 } [get_ports { ir_tx_PAD }]
-
-## ESP32-C3 Software-SPI on JA3 (CLK) and JA4 (DATA)
-## Connect ESP32 GPIO5 → FPGA JA3, GPIO4 → FPGA JA4, GND → GND
-set_property -dict { PACKAGE_PIN A11   IOSTANDARD LVCMOS33 } [get_ports { spi_clk_PAD }]
-set_property -dict { PACKAGE_PIN D12   IOSTANDARD LVCMOS33 } [get_ports { spi_data_PAD }]
