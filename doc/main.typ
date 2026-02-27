@@ -46,62 +46,71 @@ On the other side the ESP32 serves as the brain of the user interface. It hosts 
     import draw: *
     set-style(line: (stroke: 1pt), content: (padding: .1))
 
-    // Background boundaries
-    rect((4.5, -1.5), (16.5, 5), stroke: (dash: "dashed", paint: gray, thickness: 1pt), radius: 0.2)
-    content((10.5, 5), text(gray)[*FPGA Core System*], anchor: "south")
+    let b(t) = box(stroke: 1pt, inset: 6pt, align(center)[#text(8pt, t)])
 
-    // Nodes (X step: 3, Y step: 2.5)
-    content((0, 0), box(stroke: 1pt, inset: 6pt, align(center)[*Smartphone* \ Web UI]), name: "phone")
-    content((3, 0), box(stroke: 1pt, inset: 6pt, align(center)[*ESP32-C3* \ WiFi Server]), name: "esp")
-    content((6, 0), box(stroke: 1pt, inset: 6pt, align(center)[*SPI* \ *Receiver*]), name: "spi")
-    content((9, 0), box(stroke: 1pt, inset: 6pt, align(center)[*Command* \ *Dispatcher*]), name: "cmd")
+    // FPGA Wrapper Box
+    rect((5.2, -3.2), (22.8, 5.2), stroke: (dash: "dashed", paint: gray, thickness: 1pt), radius: 0.2)
+    content((14.0, 5.2), text(gray)[*FPGA Core System*], anchor: "south")
 
-    content((3, 4), box(stroke: 1pt, inset: 6pt, align(center)[*Infrared* \ *Receiver*]), name: "rx")
-    content((6, 4), box(stroke: 1pt, inset: 6pt, align(center)[*Edge* \ *Detector*]), name: "edge")
-    content((9, 4), box(stroke: 1pt, inset: 6pt, align(center)[*Pulse* \ *Timer*]), name: "timer")
-    content((12, 4), box(stroke: 1pt, inset: 6pt, align(center)[*Decoder* \ (NEC, etc.)]), name: "dec")
-    content((15, 4), box(stroke: 1pt, inset: 6pt, align(center)[*Output* \ *Formatter*]), name: "fmt")
+    // External IN
+    content((0, 0), b([*Smartphone* \ Web UI]), name: "phone")
+    content((3.5, 0), b([*ESP32-C3* \ WiFi Server]), name: "esp")
+    content((3.5, 4), b([*Infrared* \ Receiver]), name: "rx")
 
-    content((15, 2.5), box(stroke: 1pt, inset: 6pt, align(center)[*UART* \ *TX*]), name: "uart")
-    content((18, 2.5), box(stroke: 1pt, inset: 6pt, align(center)[*PC Terminal* \ UART Display]), name: "pc")
+    // FPGA Receiver Path (Row 4)
+    content((7.0, 4), b([*Edge* \ Detector]), name: "edge")
+    content((10.5, 4), b([*Pulse* \ Timer]), name: "timer")
+    content((14.0, 4), b([*Decoder* \ (NEC, etc.)]), name: "dec")
+    content((17.5, 4), b([*Output* \ Formatter]), name: "fmt")
+    content((21.0, 4), b([*UART* \ TX]), name: "uart")
 
-    content((12, 2.5), box(stroke: 1pt, inset: 6pt, align(center)[*Recorder* \ *FSM*]), name: "rec")
-    content((12, 1), box(stroke: 1pt, inset: 6pt, align(center)[*Storage* \ *BRAM*]), name: "bram")
-    content((12, -0.5), box(stroke: 1pt, inset: 6pt, align(center)[*Replay* \ *FSM*]), name: "rep")
+    // FPGA Command Path (Row 0)
+    content((7.0, 0), b([*SPI* \ Receiver]), name: "spi")
+    content((10.5, 0), b([*Command* \ Dispatcher]), name: "cmd")
 
-    content((15, -0.5), box(stroke: 1pt, inset: 6pt, align(center)[*IR* \ *Encoder*]), name: "enc")
-    content((18, -0.5), box(stroke: 1pt, inset: 6pt, align(center)[*Infrared* \ *Transmitter*]), name: "tx")
+    // FPGA Storage & Replay (Middle / Bottom)
+    content((14.0, 1.5), b([*Recorder* \ FSM]), name: "rec")
+    content((17.5, 0), b([*Storage* \ BRAM]), name: "bram")
+    content((14.0, -2), b([*Replay* \ FSM]), name: "rep")
+    content((17.5, -2), b([*IR* \ Encoder]), name: "enc")
 
-    // Direct Connections
-    line("rx", "edge", mark: (end: ">"), name: "l1")
-    content("l1.mid", text(6pt)[`ir_in`], anchor: "south", padding: 2pt)
+    // External OUT
+    content((24.5, 4), b([*PC Terminal* \ UART Display]), name: "pc")
+    content((24.5, -2), b([*Infrared* \ Transmitter]), name: "tx")
 
+    // Connections: Receiver Path
+    line("rx", "edge", mark: (end: ">"), name: "l_rx")
+    content("l_rx.mid", text(6pt)[`ir_in`], anchor: "south", padding: 2pt)
     line("edge", "timer", mark: (end: ">"))
     line("timer", "dec", mark: (end: ">"))
     line("dec", "fmt", mark: (end: ">"))
     line("fmt", "uart", mark: (end: ">"))
+    line("uart", "pc", mark: (end: ">"), name: "l_tx")
+    content("l_tx.mid", text(6pt)[`tx_out`], anchor: "south", padding: 2pt)
 
-    line("uart", "pc", mark: (end: ">"), name: "l3")
-    content("l3.mid", text(6pt)[`tx_out`], anchor: "south", padding: 2pt)
-
-    line("dec", "rec", mark: (end: ">"))
-    line("rec", "bram", mark: (end: ">"))
-
-    line("phone", "esp", mark: (start: ">", end: ">"))
+    // Connections: Control & SPI Path
+    line("phone", "esp", mark: (start: ">", end: ">"), name: "l_wifi")
+    content("l_wifi.mid", text(6pt)[HTTP / WiFi], anchor: "south", padding: 2pt)
     line("esp", "spi", mark: (end: ">"))
     line("spi", "cmd", mark: (end: ">"))
 
-    // Orthogonal routing for CMD -> REC and CMD -> REP to avoid overlaps
-    line("cmd", (9, 2.5), "rec", mark: (end: ">"))
-    line("cmd", (9, -0.5), "rep", mark: (end: ">"))
+    // Connections: Decoder to Recorder
+    line("dec", "rec", mark: (end: ">"))
 
-    line("rep", "bram", mark: (start: ">", end: ">"))
+    // Connections: Command Dispatcher -> Recorder / Replay
+    line("cmd.north", (10.5, 1.5), "rec", mark: (end: ">"))
+    line("cmd.south", (10.5, -2), "rep", mark: (end: ">"))
+
+    // Connections: Recorder / Replay to BRAM
+    line("rec.south", (14.0, 0), "bram", mark: (end: ">"))
+    line("rep.north", (14.0, 0), "bram", mark: (start: ">", end: ">"))
+
+    // Connections: Replay to Encoder & TX
     line("rep", "enc", mark: (end: ">"))
-
-    line("enc", "tx", mark: (end: ">"), name: "l4")
-    content("l4.mid", text(6pt)[`ir_tx`], anchor: "south", padding: 2pt)
+    line("enc", "tx", mark: (end: ">"), name: "l_irtx")
+    content("l_irtx.mid", text(6pt)[`ir_tx`], anchor: "south", padding: 2pt)
   }),
-  caption: [System architecture diagram detailing the hardware components without clutter],
+  caption: [System architecture diagram explicitly mapping all hardware components without overlap],
 ) <fig-system-arch>
 
 == EdgeDetector (Lukas Mittermeier)
@@ -511,7 +520,7 @@ protocol and building the WiFi web interface.
 The implementation was verified on a Digilent Arty A7-35T board carrying a Xilinx
 Artix-7 XC7A35T FPGA. The board provides a 100 MHz system oscillator.
 
-The FPGA I/O pins were mapped as folliwing:
+The FPGA I/O pins were mapped as following:
 #figure(
   table(
     columns: (auto, auto),
