@@ -33,6 +33,13 @@ The goal of this project was to build a complete, self-contained system that can
 + *Store* up to 40 captured commands in named slots,
 + *Replay* any stored command wirelessly via a web browser.
 
+It is worth noting that the project was originally intended to strictly decode and
+encode only the standard NEC protocol (which is why the core modules are named
+`NECDecoder` and `NECEncode`). However, getting the baseline NEC implementation
+running went much faster than anticipated. This freed up time to expand the scope
+significantly, adding support for multiple different remotes, entirely different
+pulse-distance protocols, and the web-based storage system. And the ESP32-C3 Wifi steering so we have a whole Produvt which allows you to connect any Ir controlled device which supports our Protocll to your smart home
+
 The system consists of two main components: an FPGA running a pipelined VHDL decoder,
 and an ESP32-C3 microcontroller exposing a Wi-Fi web interface.
 
@@ -283,6 +290,7 @@ produced a phantom output. Tightening the timing windows for repeat detection an
 adding stricter structure checks solved this.
 
 
+
 == OutputFormatter (Lukas Mittermeier)
 
 Serializes decoded NEC frames (address + command) into ASCII for UART transmission,
@@ -337,11 +345,116 @@ The storage module infers block RAM (`(* ram_style = "block" *)`) with separate 
 
 Initially, `rd_valid` remained asserted for multiple cycles when `rd_en` was held high, violating the single-cycle pulse contract defined in `ir_types_pkg`. The final implementation explicitly deasserts `rd_valid` at the start of each clock cycle and only reasserts it when `rd_en` is sampled, ensuring strict single-cycle pulse behavior regardless of input hold time. This matches the handshake protocol expected by downstream modules (e.g., IR player) and prevents spurious read acknowledgments.
 
-== IRReplayFSM
+== IRReplayFSM (Lukas Mittermeier)
 
-== NECEncoder
+== NECEncoder (Maik Unglert)
 
-== IRTx
+To support the replay functionality, a complete transmit path was needed. The encoder
+module sits in the middle of this path, taking a stored frame payload from the
+`IRReplayFSM` and turning it into a single-wire digital sequence called `mark_active`,
+which is then sent to the `IRTx` module to drive the physical LED.
+
+The architecture is built around a simple state machine driven by a one-microsecond
+tick. It moves through the leader burst, leader space, data bits, and a final stop
+burst. Although its name and internal documentation focus heavily on the NEC standard,
+it actually supports all four protocol variants out of the box. It achieves this by
+reading the protocol ID from the payload and dynamically adjusting the required waiting
+times for bursts and spaces on the fly.
+
+In stark contrast to the decoder, bringing up the encoder was relatively painless.
+The decoder had to deal with noisy physical signals, distorted pulse widths, and
+unpredictable remotes. The encoder, on the other hand, only needs to output perfectly
+timed digital signals. Getting it to match the exact timing requirements took some
+testing, but the real challenge was handling all the protocol-specific quirks
+perfectly in reverse.
+
+The Samsung36 protocol requires a strange 4.5 ms sync space right in the middle of
+the frame. The encoder handles this by pausing the normal bit transmission when the
+bit index hits 16, inserting the sync burst and space, and only then moving on to
+the remaining bits.
+
+Repeat codes were another edge case. When the repeat flag is set in the stored
+payload, the encoder skips the data bits entirely. It just outputs the 9 ms leader
+mark, a shorter 2.25 ms space, and directly goes to the stop burst. Everything is
+driven by the same microsecond counter, which made it easy to dial in the exact
+lengths needed to reliably trigger different TV and LED receivers.
+
+== IRTx (Maik Unglert)
+
+The final piece of the playback chain is the transmitter module. While the encoder
+figures out the exact microsecond lengths of the bursts and spaces, the infrared LED
+cannot just be turned on solidly during a burst. It needs to be pulsed rapidly at a
+specific carrier frequency so the receiver on the other end can distinguish the
+signal from background light.
+
+The `IRTx` module takes the `mark_active` signal from the encoder and modulates it
+with a 38 kHz carrier wave. It uses a simple clock divider that counts system ticks
+and toggles the output pin at the correct frequency whenever the encoder says a burst
+is active. During spaces, the output is held low. This modulated 38 kHz digital
+pulse train is routed directly to an FPGA pin to drive an external NPN transistor
+circuit, which switches the high current needed for the actual IR LED (the physical
+circuit design is detailed in @sec-irtx-hardware).
+
+#figure(
+  canvas(length: 1cm, {
+    let lw = 0.8pt
+    let w = 8
+
+    // Labels
+    draw.content((-0.2, 2.5), [*`mark_active`*], anchor: "east")
+    draw.content((-0.2, 1.25), [*38 kHz Carrier*], anchor: "east")
+    draw.content((-0.2, 0), [*`ir_tx` Out*], anchor: "east")
+
+    // mark_active waveform (high - low - high)
+    draw.line((0, 2), (0, 3), (3, 3), (3, 2), (6, 2), (6, 3), (w, 3), stroke: lw + blue)
+    draw.content((1.5, 3.2), text(size: 8pt)[Burst (Mark)], anchor: "south")
+    draw.content((4.5, 2.2), text(size: 8pt)[Space], anchor: "south")
+    draw.content((7.0, 3.2), text(size: 8pt)[Burst (Mark)], anchor: "south")
+
+    // Carrier waveform (continuous)
+    let carrier_pts = ()
+    for i in range(24) {
+      let x = i * (w / 23)
+      let y = 1.0 + calc.sin(i * 180deg) * 0.5
+      carrier_pts.push((x, y))
+    }
+    // Make square waves out of the points
+    for i in range(0, 23, step: 2) {
+      draw.line(
+        (i * (w / 24), 1),
+        (i * (w / 24), 1.5),
+        ((i + 1) * (w / 24), 1.5),
+        ((i + 1) * (w / 24), 1),
+        ((i + 2) * (w / 24), 1),
+        stroke: lw + gray,
+      )
+    }
+
+    // Modulated output waveform (carrier when high, low when low)
+    for i in range(0, 23, step: 2) {
+      let x1 = i * (w / 24)
+      let x2 = (i + 1) * (w / 24)
+      let x3 = (i + 2) * (w / 24)
+
+      // Inside first burst
+      if x3 <= 3 {
+        draw.line((x1, -0.5), (x1, 0), (x2, 0), (x2, -0.5), (x3, -0.5), stroke: lw + red)
+      } // Inside space
+      else if x1 >= 3 and x3 <= 6 {
+        draw.line((x1, -0.5), (x3, -0.5), stroke: lw + red)
+      } // Inside second burst
+      else if x1 >= 6 {
+        draw.line((x1, -0.5), (x1, 0), (x2, 0), (x2, -0.5), (x3, -0.5), stroke: lw + red)
+      }
+    }
+
+    // Time axis
+    draw.line((0, -1.2), (w + 0.5, -1.2), stroke: 0.5pt, mark: (end: ">"))
+    draw.content((w + 0.6, -1.2), text(size: 8pt)[$t$], anchor: "west")
+  }),
+  caption: [Modulation of the `mark_active` envelope onto the 38 kHz carrier],
+) <fig-irtx-modulation>
+
 
 = Bringing up the physical hardware (Sauerwein Alexander)
 
@@ -421,7 +534,7 @@ $
   approx 3.33 "V" < 3.4 "V" space checkmark
 $
 
-== IR Transmitter Circuit
+== IR Transmitter Circuit <sec-irtx-hardware>
 
 The Arty A7-35T only provides a *3.3 V* supply rail and the FPGA control pin
 `ir_tx_PAD` drives at 3.3 V logic levels. Because the IR LED requires
@@ -694,49 +807,78 @@ immediately.
   caption: [HTTP API endpoints],
 ) <tab-api>
 
-= System Parameters
+= Flashing the FPGA (Maik Unglert)
 
-#figure(
-  table(
-    columns: (auto, auto),
-    table.header([*Parameter*], [*Value*]),
-    [IR carrier frequency], [38 kHz (demodulated by TSOP receiver)],
-    [FPGA clock], [100 MHz (Artix-7 PLL)],
-    [NEC leader burst], [9 ms ± 20%],
-    [NEC data bit '1'], [2.25 ms pulse distance],
-    [NEC data bit '0'], [1.125 ms pulse distance],
-    [Serial baud rate], [500 Baud (2 ms per bit, 1 ms half-period)],
-    [Max. slots], [40 (4 remotes × 10 slots)],
-    [Slot name max. length], [23 characters],
-    [Wi-Fi SSID], [IR-Remote],
-    [Web interface URL], [`http://192.168.4.1`],
-    [HTML buffer (home)], [16 KB],
-    [HTML buffer (remote)], [24 KB],
-  ),
-  caption: [System parameters],
-) <tab-params>
+== Hardware Components & Top-Level Integration
 
-= Building & Flashing
+As detailed in the earlier chapters, the system is built from several modular IP
+components (decoder, recorder/memory, replay FSM, encoder, etc.). To tie all these
+individual hardware components together, a global `ir_recorder_replay_top` module
+was created. This file handles the entire datapath from the incoming physical IR pulse
+to the decoding, storage, replay, and final IR transmission.
 
-== FPGA
+When bringing this design to the physical FPGA board via the `ir_recorder_replay_arty_top`
+wrapper, several integration challenges emerged that required immediate fixes:
 
-```bash
-# Simulate a single module
-make -C IRDecoder/NECDecoder sim
+- *Clock Mismatch:* The individual modules (`nec_decoder`, `pulse_timer`, etc.) were
+  originally implemented and tested with a 10 MHz clock assumption. The Arty A7 board,
+  however, provides a 100 MHz oscillator. Instead of using an internal PLL to divide
+  the clock, the entire codebase was adapted by parameterizing every time-dependent
+  module with a `CORE_CLK_HZ` parameter. This allowed the core logic to dynamically
+  calculate its internal 1 µs ticks and UART baud rates based directly on the 100 MHz
+  board clock.
+- *Invisible LED Pulses:* Status signals like `dec_valid` or `error` only assert for
+  a single clock cycle. At 100 MHz, this is just 10 nanoseconds — completely invisible
+  to the human eye. To solve this, dedicated pulse-stretching timers were added to the
+  top-level wrapper, holding the debug LEDs on for 200 ms whenever a flag is triggered.
+- *Button Multiplexing for Standalone Testing:* Before the ESP32 WiFi bridge was even
+  connected, we needed a way to test the core FPGA record and replay logic directly
+  on the hardware. The Arty board only provides four physical buttons, but we
+  needed to trigger both recording and replaying across four different memory slots
+  to verify the memory management. This was solved by implementing a press-classification
+  timer in the top level. A short press triggers a replay, while holding the button
+  for more than 0.6 seconds triggers a record operation for that specific slot.
 
-# Synthesize and program the Arty A7
-make -C IRDecoder/NECDecoder synth
-make -C TopLevel program
-```
+== Vivado CLI Automation
 
-== ESP32-C3 Firmware
+Initially, the standard Vivado GUI was installed to compile and flash the bitstream.
+However, the GUI proved to be incredibly sluggish, bloated, and actively hindered a
+fast iterative development cycle. Opening the project, clicking through the synthesis,
+implementation, and bitstream generation menus took far too much time and broke focus.
 
-```bash
-cd wifi_button
-idf.py set-target esp32c3
-idf.py build
-idf.py flash monitor
-```
+To solve this, the entire FPGA build process was heavily automated using Vivado's
+command-line mode (`vivado -mode batch`). Because the project was developed in a
+strictly modular fashion — where each component like the encoder, decoder, and UART
+resides in its own isolated directory — a central integration folder was created
+to house the build scripts.
+
+- `build.tcl`: This script automatically creates an in-memory Vivado project and dynamically
+  collects all necessary `.sv` source files scattered across the different component
+  folders. It then attaches the Arty A7 constraints file (`.xdc`), sets the top module
+  to `ir_recorder_replay_arty_top`, and sequentially launches multi-threaded synthesis
+  and implementation runs until the final `.bit` file is generated.
+- `program_arty.tcl`: This script connects to the local hardware server, searches
+  the USB bus for the connected Artix-7 target, uploads the generated bitstream
+  directly to the FPGA, and closes the connection.
+
+This automation allows the entire project to be built and flashed from scratch with a
+single `make program` command in the terminal, completely bypassing the Vivado GUI.
+
+= End-to-End System Validation
+
+With the FPGA logic complete and the physical hardware assembled, the true test was
+seeing if the system could fully replace real remote controls in a living room
+environment. Using the WiFi web interface, several commercial devices were targeted:
+a Samsung television, a Samsung sound system, and a generic RGB LED strip.
+
+The process of pointing the original remote at the receiver, hitting record on the web
+interface, and then using the digital interface to replay the command back to the device
+worked flawlessly. It was incredibly rewarding to see the entire stack function as a
+cohesive product. By bringing together the custom FPGA hardware, the precise waveform
+encoder, and the ESP32 wireless bridge, the project successfully bridges the gap between
+legacy hardware and modern networks — allowing us to control otherwise "dumb"
+IR-only devices conveniently from our smartphones.
+
 = Chip Design Creation (Katalin Szentmiklosy)
 
 
