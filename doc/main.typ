@@ -1100,19 +1100,22 @@ The final signoff configuration uses `ir_recorder_replay_padframe_top` as top-le
 
 = Conclusion & Outlook
 
-The project successfully demonstrates a complete IR remote decoder with wireless replay
-capability. The modular VHDL design proved easy to test independently with cocotb
-testbenches, and the ESP32-C3 web interface requires no app installation on the
-client device.
+== Evolution & Reliability (Maik Unglert)
 
-Key lessons learned:
+What began as a small NEC-only decoder evolved into a complete infrared control system featuring recording, storage, and replay functionality. The final implementation combines multi-protocol decoding on an FPGA with an ESP32-C3–based web interface, enabling commands to be captured and replayed directly from a smartphone browser. This integration bridges low-level hardware design with user-friendly interaction.
 
-- *Timing tolerances* must be generous when targeting compatibility with multiple
-  remote brands — a ±20% window works well in practice.
-- *Buffer management* in embedded HTTP servers requires careful accounting; silent
-  truncation from `snprintf` overflow is easy to miss without end-to-end testing.
-- *Hardware/software interface design* (the 12-bit frame protocol) benefits from a
-  validation field (magic bits) even in simple point-to-point links.
+The most important outcome of the project is its practical reliability. The system does not merely function in simulation; it operates consistently on real hardware, handling real remote controls and real-world signal variations with stable performance.
 
-*Future work* includes persistent slot storage via NVS flash, support for additional
-IR protocols (RC5, Sony SIRC), and OTA firmware updates for the ESP32.
+== Technical Insights (Lukas Mittermeier)
+
+From a Verilog design perspective, clearly defined module boundaries and stable interfaces were crucial to success. The decoder, recorder, replay finite state machine, and encoder were each implemented and verified independently before full system integration. This modular approach significantly reduced integration risks and accelerated debugging.
+
+Parameterized timing logic also proved to be essential. It allowed the same core design to transition smoothly from simulation to deployment on a 100 MHz FPGA without requiring fundamental behavioral changes. This portability highlights the importance of abstraction and scalable design in digital systems engineering.
+
+== Reflections & Future Work (Maik Unglert)
+
+Beyond the technical achievements, the project was particularly enjoyable due to the strong teamwork throughout the development phase. Responsibilities remained flexible, collaboration was seamless, and mutual support was a constant. In practice, everyone contributed across boundaries, which ensured steady progress and simplified system integration.
+
+A key takeaway from this project is a much deeper understanding of how integrated circuits are structured and how they operate internally. Recognizing that complex system behavior ultimately arises from transistor-level building blocks provides valuable perspective. It also enhances the ability to understand everyday devices—such as remote controls and televisions—at a technical level.
+
+The current architecture leaves clear room for further extension. Meaningful next steps include implementing persistent slot storage in the ESP32 flash memory, adding support for additional protocols such as RC5 and Sony SIRC, and enabling over-the-air (OTA) firmware updates to facilitate long-term maintenance and scalability.
