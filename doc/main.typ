@@ -777,7 +777,68 @@ noise.
 *Solution:* The 3 bit magic field (`101`) was introduced as a frame
 validator. Frames not matching the magic value are discarded by the FPGA.
 
-== WiFi Web Interface
+=== FPGA-Side Receiver (Maik Unglert)
+
+Once the ESP32-C3 was configured to transmit the core commands over the wire,
+we needed a way for the FPGA to safely receive and interpret this data. Because the ESP32
+and the FPGA operate on completely different, unsynchronized clocks, we couldn't just wire
+the pins directly into our state machines.
+
+To solve this, the `esp32_spi_receiver` was built as a standalone, 4-stage pipeline that
+safely bridges the gap between the two hardware domains:
+
+1. *2-FF Synchronizer:* First, we pass the incoming clock and data lines through two
+  cascaded flip-flops. This "cleans" the signal and safely brings it into the FPGA's
+  internal 10 MHz clock domain without risking metastability (crashing the logic).
+2. *Edge Detector:* Now that the clock is synchronized, we look for just the rising edge
+  of it. This generates a tiny, one-cycle pulse (`clk_rise`) that tells the rest of the
+  receiver exactly when a new bit of data is ready to be read.
+3. *Idle Timeout:* If the ESP32 crashes or is power-cycled mid-transmission, we would
+  normally be stuck waiting forever for the rest of an incomplete frame. We added a timer
+  that simply resets the receiver if the clock goes quiet for more than 3 milliseconds.
+4. *Shift Register & Magic Check:* With the timing locked in, the 12 bits are shifted in.
+  Once full, the receiver checks if the last 3 bits match our expected `101` "magic" value.
+  If yes, the frame is valid, and the slot address and command are forwarded to the core logic.
+
+#figure(
+  canvas({
+    import draw: *
+    set-style(line: (stroke: 1pt), content: (padding: .1))
+
+    content((0, 0), [*ESP32*], name: "esp")
+
+    content((3.5, 0), box(stroke: 1pt, inset: 6pt, align(center)[2-FF \ Sync]), name: "sync")
+    content((7, 2), box(stroke: 1pt, inset: 6pt, align(center)[Edge \ Detect]), name: "edge")
+    content((7, -2), box(stroke: 1pt, inset: 6pt, align(center)[Idle \ Timeout]), name: "timeout")
+    content((11, 0), box(stroke: 1pt, inset: 6pt, align(center)[Shift Reg & \ Magic Check]), name: "shift")
+
+    content((15, 0), [*FPGA Core*], name: "out")
+
+    line("esp", "sync", mark: (end: ">"), name: "l1")
+    content("l1.mid", text(7pt)[`clk`, `data`], anchor: "south")
+
+    line("sync", "edge", mark: (end: ">"), name: "l2")
+    content("l2.mid", text(7pt)[`clk_sync`], anchor: "south-east")
+
+    line("sync", "timeout", mark: (end: ">"), name: "l3")
+    content("l3.mid", text(7pt)[`clk_sync`], anchor: "north-east")
+
+    line("sync", "shift", mark: (end: ">"), name: "l4")
+    content("l4.mid", text(7pt)[`data_sync`], anchor: "south")
+
+    line("edge", "shift", mark: (end: ">"), name: "l5")
+    content("l5.mid", text(7pt)[`clk_rise`], anchor: "south-west")
+
+    line("timeout", "shift", mark: (end: ">"), name: "l6")
+    content("l6.mid", text(7pt)[`rst_cnt`], anchor: "north-west")
+
+    line("shift", "out", mark: (end: ">"), name: "l7")
+    content("l7.mid", text(7pt)[`slot`, `req`], anchor: "south")
+  }),
+  caption: [Block diagram illustrating the four pipeline stages of the SPI receiver.],
+) <fig-spi-receiver>
+
+== WiFi Web Interface (Alexander Sauerwein)
 
 === Architecture
 
