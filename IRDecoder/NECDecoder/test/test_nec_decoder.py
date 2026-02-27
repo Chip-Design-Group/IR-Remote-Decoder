@@ -25,13 +25,21 @@ from cocotb_tools.runner import get_runner
 # ============================================================
 CLK_PERIOD_NS = 100  # 10 MHz
 
-# NEC protocol timings in clock cycles
-AGC_BURST    = 90000   # 9.0 ms
-AGC_SPACE    = 45000   # 4.5 ms
+# NEC/Samsung protocol timings in clock cycles
+NEC_AGC_BURST = 90000   # 9.0 ms
+AGC_SPACE     = 45000   # 4.5 ms (NEC and Samsung)
+SAMSUNG_AGC_BURST = 45000  # 4.5 ms
 REPEAT_SPACE = 22500   # 2.25 ms
 BIT_BURST    = 5600    # 560 µs
 BIT0_SPACE   = 5600    # 560 µs  (logical 0)
 BIT1_SPACE   = 16900   # 1.69 ms (logical 1)
+BIT1X2_SPACE = 10300   # 1.03 ms (custom NEC-like '1')
+
+PROTO_UNKNOWN = 0
+PROTO_NEC = 1
+PROTO_SAMSUNG = 8
+PROTO_SAMSUNG48 = 9
+PROTO_NEC8X2 = 10
 
 
 # ============================================================
@@ -44,12 +52,14 @@ class NecResult:
         self.decode_error = False
         self.address = 0
         self.command = 0
+        self.protocol_id = PROTO_UNKNOWN
 
     def reset(self):
         self.data_valid = False
         self.decode_error = False
         self.address = 0
         self.command = 0
+        self.protocol_id = PROTO_UNKNOWN
 
 
 async def monitor_results(dut, result):
@@ -60,6 +70,7 @@ async def monitor_results(dut, result):
             result.data_valid = True
             result.address = int(dut.address.value)
             result.command = int(dut.command.value)
+            result.protocol_id = int(dut.protocol_id.value)
         if dut.decode_error.value == 1:
             result.decode_error = True
 
@@ -121,7 +132,7 @@ async def send_nec_frame(dut, address, command):
         command: 8-bit command (0x00 - 0xFF)
     """
     # 1. AGC Burst (LOW pulse, 9ms)
-    await send_pulse(dut, AGC_BURST, 0)
+    await send_pulse(dut, NEC_AGC_BURST, 0)
 
     # 2. AGC Space (HIGH pulse, 4.5ms)
     await send_pulse(dut, AGC_SPACE, 1)
@@ -149,20 +160,138 @@ async def send_nec_frame(dut, address, command):
     await ClockCycles(dut.clk, 5)
 
 
+async def send_nec_frame_addr16(dut, address_hi, address_lo, command):
+    """Send a NEC leader with 16-bit address payload and inverted command byte."""
+    await send_pulse(dut, NEC_AGC_BURST, 0)
+    await send_pulse(dut, AGC_SPACE, 1)
+
+    cmd_inv = (~command) & 0xFF
+    data_32 = address_hi | (address_lo << 8) | (command << 16) | (cmd_inv << 24)
+
+    for i in range(32):
+        bit = (data_32 >> i) & 1
+        await send_pulse(dut, BIT_BURST, 0)
+        if bit == 0:
+            await send_pulse(dut, BIT0_SPACE, 1)
+        else:
+            await send_pulse(dut, BIT1_SPACE, 1)
+
+    await send_pulse(dut, BIT_BURST, 0)
+    await ClockCycles(dut.clk, 5)
+
+
 async def send_repeat_code(dut):
     """Send a NEC repeat code.
 
     Repeat code: AGC burst (9ms) + Short space (2.25ms) + Stop burst (560µs)
     """
-    await send_pulse(dut, AGC_BURST, 0)
+    await send_pulse(dut, NEC_AGC_BURST, 0)
     await send_pulse(dut, REPEAT_SPACE, 1)
+    await send_pulse(dut, BIT_BURST, 0)
+    await ClockCycles(dut.clk, 5)
+
+
+async def send_samsung_frame(dut, address, command):
+    """Send a Samsung-style frame (4.5ms + 4.5ms leader, NEC-like data/checksum)."""
+    await send_pulse(dut, SAMSUNG_AGC_BURST, 0)
+    await send_pulse(dut, AGC_SPACE, 1)
+
+    addr_inv = (~address) & 0xFF
+    cmd_inv = (~command) & 0xFF
+    data_32 = address | (addr_inv << 8) | (command << 16) | (cmd_inv << 24)
+
+    for i in range(32):
+        bit = (data_32 >> i) & 1
+        await send_pulse(dut, BIT_BURST, 0)
+        if bit == 0:
+            await send_pulse(dut, BIT0_SPACE, 1)
+        else:
+            await send_pulse(dut, BIT1_SPACE, 1)
+
+    await send_pulse(dut, BIT_BURST, 0)
+    await ClockCycles(dut.clk, 5)
+
+
+async def send_samsung_frame_addr16(dut, address_hi, address_lo, command):
+    """Send Samsung-style frame with 16-bit address (no inverted address byte)."""
+    await send_pulse(dut, SAMSUNG_AGC_BURST, 0)
+    await send_pulse(dut, AGC_SPACE, 1)
+
+    cmd_inv = (~command) & 0xFF
+    data_32 = address_hi | (address_lo << 8) | (command << 16) | (cmd_inv << 24)
+
+    for i in range(32):
+        bit = (data_32 >> i) & 1
+        await send_pulse(dut, BIT_BURST, 0)
+        if bit == 0:
+            await send_pulse(dut, BIT0_SPACE, 1)
+        else:
+            await send_pulse(dut, BIT1_SPACE, 1)
+
+    await send_pulse(dut, BIT_BURST, 0)
+    await ClockCycles(dut.clk, 5)
+
+
+async def send_nec8x2_frame(dut, command):
+    """Send NEC-like 8-bit frame with 560us/1030us data spaces."""
+    await send_pulse(dut, NEC_AGC_BURST, 0)
+    await send_pulse(dut, AGC_SPACE, 1)
+
+    for i in range(8):
+        bit = (command >> i) & 1
+        await send_pulse(dut, BIT_BURST, 0)
+        if bit == 0:
+            await send_pulse(dut, BIT0_SPACE, 1)
+        else:
+            await send_pulse(dut, BIT1X2_SPACE, 1)
+
+    await send_pulse(dut, BIT_BURST, 0)
+    await ClockCycles(dut.clk, 5)
+
+
+async def send_samsung_frame_non_inverted_cmd_tail(dut, address_hi, address_lo, command_hi, command_lo):
+    """Send Samsung-style 32-bit payload without command inversion in the top byte pair."""
+    await send_pulse(dut, SAMSUNG_AGC_BURST, 0)
+    await send_pulse(dut, AGC_SPACE, 1)
+
+    data_32 = address_hi | (address_lo << 8) | (command_hi << 16) | (command_lo << 24)
+
+    for i in range(32):
+        bit = (data_32 >> i) & 1
+        await send_pulse(dut, BIT_BURST, 0)
+        if bit == 0:
+            await send_pulse(dut, BIT0_SPACE, 1)
+        else:
+            await send_pulse(dut, BIT1_SPACE, 1)
+
+    await send_pulse(dut, BIT_BURST, 0)
+    await ClockCycles(dut.clk, 5)
+
+
+async def send_samsung_frame_split_space(dut, data_bits, total_bits=48, split_after_bits=16):
+    """Send Samsung48-style frame with an extra 4.5ms delimiter space in the middle."""
+    await send_pulse(dut, SAMSUNG_AGC_BURST, 0)
+    await send_pulse(dut, AGC_SPACE, 1)
+
+    for i in range(total_bits):
+        bit = (data_bits >> i) & 1
+        await send_pulse(dut, BIT_BURST, 0)
+        if bit == 0:
+            await send_pulse(dut, BIT0_SPACE, 1)
+        else:
+            await send_pulse(dut, BIT1_SPACE, 1)
+
+        if i + 1 == split_after_bits:
+            await send_pulse(dut, BIT_BURST, 0)
+            await send_pulse(dut, AGC_SPACE, 1)
+
     await send_pulse(dut, BIT_BURST, 0)
     await ClockCycles(dut.clk, 5)
 
 
 async def send_bad_checksum_frame(dut, address, command, bad_addr_inv, bad_cmd_inv):
     """Send a NEC frame with intentionally wrong checksum."""
-    await send_pulse(dut, AGC_BURST, 0)
+    await send_pulse(dut, NEC_AGC_BURST, 0)
     await send_pulse(dut, AGC_SPACE, 1)
 
     data_32 = address | (bad_addr_inv << 8) | (command << 16) | (bad_cmd_inv << 24)
@@ -205,6 +334,7 @@ async def test_decode_valid_frame_power_button(dut):
     assert result.data_valid, "data_valid should have pulsed for valid frame"
     assert result.address == 0x00, f"Expected address 0x00, got {hex(result.address)}"
     assert result.command == 0x45, f"Expected command 0x45, got {hex(result.command)}"
+    assert result.protocol_id == PROTO_NEC, f"Expected protocol NEC, got {result.protocol_id}"
     assert not result.decode_error, "decode_error should not have pulsed"
 
 
@@ -217,6 +347,20 @@ async def test_decode_valid_frame_mute_button(dut):
     assert result.data_valid, "data_valid should have pulsed"
     assert result.address == 0x00, f"Expected address 0x00, got {hex(result.address)}"
     assert result.command == 0x46, f"Expected command 0x46, got {hex(result.command)}"
+    assert result.protocol_id == PROTO_NEC, f"Expected protocol NEC, got {result.protocol_id}"
+
+
+@cocotb.test()
+async def test_decode_valid_nec_frame_addr16_style(dut):
+    """NEC extended-style 16-bit address should still be classified as NEC."""
+    result = await setup_test(dut)
+    await send_nec_frame_addr16(dut, address_hi=0x12, address_lo=0x34, command=0x56)
+
+    assert result.data_valid, "data_valid should have pulsed for NEC addr16 frame"
+    assert result.address == 0x12, f"Expected first address byte 0x12, got {hex(result.address)}"
+    assert result.command == 0x56, f"Expected command 0x56, got {hex(result.command)}"
+    assert result.protocol_id == PROTO_NEC, f"Expected protocol NEC, got {result.protocol_id}"
+    assert not result.decode_error, "decode_error should not have pulsed"
 
 
 @cocotb.test()
@@ -228,6 +372,7 @@ async def test_decode_different_address(dut):
     assert result.data_valid, "data_valid should have pulsed"
     assert result.address == 0x04, f"Expected address 0x04, got {hex(result.address)}"
     assert result.command == 0x08, f"Expected command 0x08, got {hex(result.command)}"
+    assert result.protocol_id == PROTO_NEC, f"Expected protocol NEC, got {result.protocol_id}"
 
 
 @cocotb.test()
@@ -239,19 +384,21 @@ async def test_decode_all_ones(dut):
     assert result.data_valid, "data_valid should have pulsed"
     assert result.address == 0xFF, f"Expected address 0xFF, got {hex(result.address)}"
     assert result.command == 0xFF, f"Expected command 0xFF, got {hex(result.command)}"
+    assert result.protocol_id == PROTO_NEC, f"Expected protocol NEC, got {result.protocol_id}"
 
 
 @cocotb.test()
-async def test_checksum_error_bad_address(dut):
-    """Test that a bad address checksum triggers decode_error."""
+async def test_nec_addr16_style_is_accepted(dut):
+    """Address non-inversion with valid command inversion is accepted as NEC."""
     result = await setup_test(dut)
 
     await send_bad_checksum_frame(dut,
         address=0x00, command=0x45,
         bad_addr_inv=0x00, bad_cmd_inv=0xBA)
 
-    assert result.decode_error, "decode_error should have pulsed for bad checksum"
-    assert not result.data_valid, "data_valid should not have pulsed for bad checksum"
+    assert not result.decode_error, "decode_error should not pulse for NEC addr16 style"
+    assert result.data_valid, "data_valid should pulse for NEC addr16 style"
+    assert result.protocol_id == PROTO_NEC, f"Expected protocol NEC, got {result.protocol_id}"
 
 
 @cocotb.test()
@@ -273,7 +420,7 @@ async def test_timeout_during_data(dut):
     await setup_clock(dut)
     await reset_dut(dut)
 
-    await send_pulse(dut, AGC_BURST, 0)
+    await send_pulse(dut, NEC_AGC_BURST, 0)
     await send_pulse(dut, AGC_SPACE, 1)
 
     for _ in range(5):
@@ -297,7 +444,7 @@ async def test_receiving_signal(dut):
 
     assert dut.receiving.value == 0, "receiving should be 0 in IDLE"
 
-    await send_pulse(dut, AGC_BURST, 0)
+    await send_pulse(dut, NEC_AGC_BURST, 0)
     assert dut.receiving.value == 1, "receiving should be 1 after AGC burst"
 
     await send_pulse(dut, AGC_SPACE, 1)
@@ -396,7 +543,7 @@ async def test_repeat_missing_final_burst_is_ignored(dut):
 
     # Clear monitor and send only AGC + repeat space (missing trailing burst)
     result.reset()
-    await send_pulse(dut, AGC_BURST, 0)
+    await send_pulse(dut, NEC_AGC_BURST, 0)
     await send_pulse(dut, REPEAT_SPACE, 1)
     await ClockCycles(dut.clk, 5)
 
@@ -421,6 +568,100 @@ async def test_multiple_repeats(dut):
     # Address/command should still be from original frame
     assert dut.address.value == 0x04, "Address should remain"
     assert dut.command.value == 0x08, "Command should remain"
+
+
+@cocotb.test()
+async def test_decode_valid_samsung_frame(dut):
+    """Test decoding of Samsung-style leader timing."""
+    result = await setup_test(dut)
+    await send_samsung_frame(dut, address=0x07, command=0x99)
+
+    assert result.data_valid, "data_valid should have pulsed for Samsung frame"
+    assert result.address == 0x07, f"Expected address 0x07, got {hex(result.address)}"
+    assert result.command == 0x99, f"Expected command 0x99, got {hex(result.command)}"
+    assert result.protocol_id == PROTO_SAMSUNG, f"Expected protocol SAMSUNG, got {result.protocol_id}"
+    assert not result.decode_error, "decode_error should not have pulsed"
+
+
+@cocotb.test()
+async def test_decode_valid_samsung_frame_addr16_style(dut):
+    """Samsung 16-bit address style should decode with valid command inversion."""
+    result = await setup_test(dut)
+    await send_samsung_frame_addr16(dut, address_hi=0xE0, address_lo=0xE0, command=0x40)
+
+    assert result.data_valid, "data_valid should have pulsed for Samsung addr16 frame"
+    assert result.address == 0xE0, f"Expected first address byte 0xE0, got {hex(result.address)}"
+    assert result.command == 0x40, f"Expected command 0x40, got {hex(result.command)}"
+    assert result.protocol_id == PROTO_SAMSUNG, f"Expected protocol SAMSUNG, got {result.protocol_id}"
+    assert not result.decode_error, "decode_error should not have pulsed"
+
+
+
+@cocotb.test()
+async def test_decode_samsung_lenient_non_inverted_cmd_tail(dut):
+    """Samsung leader + timing-valid payload without cmd inversion should still decode."""
+    result = await setup_test(dut)
+    await send_samsung_frame_non_inverted_cmd_tail(
+        dut, address_hi=0xE0, address_lo=0xE0, command_hi=0x40, command_lo=0xBF
+    )
+
+    assert result.data_valid, "data_valid should pulse for lenient Samsung frame"
+    assert result.address == 0xE0, f"Expected first address byte 0xE0, got {hex(result.address)}"
+    assert result.command == 0x40, f"Expected command high byte 0x40, got {hex(result.command)}"
+    assert result.protocol_id == PROTO_SAMSUNG, f"Expected protocol SAMSUNG, got {result.protocol_id}"
+
+
+@cocotb.test()
+async def test_decode_samsung_soundbar_real_capture(dut):
+    """Samsung soundbar real capture should decode as Samsung."""
+    result = await setup_test(dut)
+
+    pulses = [
+        (44900, 0), (44690, 1), (5230, 0), (16340, 1), (5460, 0), (16560, 1), (5230, 0), (16570, 1),
+        (5220, 0), (5000, 1), (5500, 0), (5000, 1), (5500, 0), (5000, 1), (5490, 0), (5010, 1),
+        (5490, 0), (5020, 1), (5470, 0), (16580, 1), (5230, 0), (16330, 1), (5470, 0), (16560, 1),
+        (5230, 0), (5010, 1), (5480, 0), (5020, 1), (5480, 0), (5010, 1), (5460, 0), (5040, 1),
+        (5480, 0), (5000, 1), (5500, 0), (5010, 1), (5490, 0), (16320, 1), (5480, 0), (5000, 1),
+        (5490, 0), (5010, 1), (5480, 0), (5020, 1), (5480, 0), (5020, 1), (5480, 0), (5000, 1),
+        (5500, 0), (5010, 1), (5490, 0), (16350, 1), (5440, 0), (5010, 1), (5480, 0), (16320, 1),
+        (5480, 0), (16570, 1), (5220, 0), (16570, 1), (5230, 0), (16310, 1), (5470, 0), (16350, 1),
+        (5450, 0), (16340, 1), (5470, 0),
+    ]
+
+    for width, level in pulses:
+        await send_pulse(dut, width, level)
+
+    await ClockCycles(dut.clk, 10)
+
+    assert result.data_valid, "data_valid should pulse for captured Samsung soundbar frame"
+    assert result.address == 0x07, f"Expected address 0x07, got {hex(result.address)}"
+    assert result.command == 0x02, f"Expected command 0x02, got {hex(result.command)}"
+    assert result.protocol_id == PROTO_SAMSUNG, f"Expected protocol SAMSUNG, got {result.protocol_id}"
+
+
+@cocotb.test()
+async def test_decode_samsung_split_space_frame(dut):
+    """Samsung48 frame with a 4.5ms mid-frame split space should decode."""
+    result = await setup_test(dut)
+    data_48 = 0xA55AFD020707
+    await send_samsung_frame_split_space(dut, data_bits=data_48, total_bits=48, split_after_bits=16)
+
+    assert result.data_valid, "data_valid should pulse for Samsung split-space frame"
+    assert result.address == 0x07, f"Expected address 0x07, got {hex(result.address)}"
+    assert result.command == 0x02, f"Expected command 0x02, got {hex(result.command)}"
+    assert result.protocol_id == PROTO_SAMSUNG48, f"Expected protocol SAMSUNG48, got {result.protocol_id}"
+
+
+@cocotb.test()
+async def test_decode_nec8x2_frame(dut):
+    """NEC-like 8-bit frame with 1.03ms logical-1 space should decode as PROTO_NEC8X2."""
+    result = await setup_test(dut)
+    await send_nec8x2_frame(dut, command=0x50)
+
+    assert result.data_valid, "data_valid should pulse for NEC8X2 frame"
+    assert result.address == 0x00, f"Expected address 0x00, got {hex(result.address)}"
+    assert result.command == 0x50, f"Expected command 0x50, got {hex(result.command)}"
+    assert result.protocol_id == PROTO_NEC8X2, f"Expected protocol NEC8X2, got {result.protocol_id}"
 
 
 # ============================================================

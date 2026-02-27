@@ -17,6 +17,8 @@
 
 `timescale 1ns/1ps
 
+import ir_types_pkg::*;
+
 module ir_replay_fsm #(
   parameter int SLOT_COUNT = ir_types_pkg::IR_SLOT_COUNT
 ) (
@@ -27,12 +29,12 @@ module ir_replay_fsm #(
   input  logic [2:0]            target_slot,
 
   output logic                  mem_rd_en,
-  output logic [2:0]            mem_rd_addr,
-  input  logic [31:0]           mem_rd_data,
+  output ir_slot_t              mem_rd_addr,
+  input  ir_word_t               mem_rd_data,
   input  logic                  mem_rd_valid,
 
   output logic                  enc_start,
-  output logic [31:0]           enc_payload,
+  output ir_payload_t            enc_payload,
   input  logic                  enc_ready,
   input  logic                  tx_ready,
 
@@ -49,6 +51,7 @@ module ir_replay_fsm #(
   localparam logic [2:0] ST_START_ENCODE = 3'd5;
   localparam logic [2:0] ST_DONE         = 3'd6;
   localparam logic [2:0] ST_ERROR        = 3'd7;
+  localparam logic [4:0] PROTO_SAMSUNG36 = 5'd9;
 
   logic [2:0] state_q, state_d;
 
@@ -56,8 +59,30 @@ module ir_replay_fsm #(
   logic replay_req_rise;
 
   logic [2:0]               slot_q, slot_d;
-  logic [31:0]              word_q, word_d;
-  logic [31:0]              payload_q, payload_d;
+  ir_word_t                  word_q, word_d;
+  ir_payload_t               payload_q, payload_d;
+
+  // Samsung36 is stored in semantic form:
+  //   [47:32]=addr16, [31:28]=id4, [27:20]=cmd8, [19:12]=~cmd8
+  // The encoder consumes payload.frame_data[bit_idx] with bit_idx rising from 0.
+  // To recreate the original wire order for this decoder, bits must be:
+  //   [7:0]=~cmd, [15:8]=cmd, [19:16]=id, [35:20]=addr.
+  function automatic logic [IR_FRAME_DATA_WIDTH-1:0] map_sam36_frame_data(
+    input logic [IR_FRAME_DATA_WIDTH-1:0] raw_src,
+    input logic [IR_FRAME_BITS_WIDTH-1:0] bits
+  );
+    logic [IR_FRAME_DATA_WIDTH-1:0] result;
+    begin
+      result = '0;
+      if (bits >= 6'd36) begin
+        for (int idx = 0; idx < 8; idx++)  result[idx]      = raw_src[12 + idx];
+        for (int idx = 0; idx < 8; idx++)  result[8 + idx]  = raw_src[20 + idx];
+        for (int idx = 0; idx < 4; idx++)  result[16 + idx] = raw_src[28 + idx];
+        for (int idx = 0; idx < 16; idx++) result[20 + idx] = raw_src[32 + idx];
+      end
+      return result;
+    end
+  endfunction
 
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -97,14 +122,20 @@ module ir_replay_fsm #(
 
       ST_READ_WAIT: begin
         if (mem_rd_valid) begin
-          word_d  = mem_rd_data;
+          word_d = mem_rd_data;
+          payload_d = ir_types_pkg::ir_unpack_word(mem_rd_data);
+          if (payload_d.protocol_id == PROTO_SAMSUNG36) begin
+            payload_d.frame_data = map_sam36_frame_data(
+              payload_d.frame_data,
+              payload_d.frame_bits
+            );
+          end
           state_d = ST_DECODE_WORD;
         end
       end
 
       ST_DECODE_WORD: begin
-        payload_d = word_q;
-        if (word_q[0]) begin
+        if (payload_q.flags[IR_FLAG_VALID_BIT]) begin
           state_d = ST_WAIT_ENCODER;
         end else begin
           state_d = ST_ERROR;

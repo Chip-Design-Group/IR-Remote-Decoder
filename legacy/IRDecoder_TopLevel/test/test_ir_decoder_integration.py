@@ -22,7 +22,7 @@ from test_legacy_helpers import (
 
 # UART config: must match uart_tx parameter CLOCKS_PER_BIT
 CLOCKS_PER_BIT = 1042  # 10 MHz / 9600 baud
-NUM_OUTPUT_BYTES = 10   # "A:xx C:yy\n"
+NUM_OUTPUT_BYTES = 21   # "P:XXXXXXXX A:xx C:yy\n"
 UART_COLLECT_TIMEOUT_NS = 150_000_000
 
 
@@ -102,7 +102,7 @@ async def test_led_active_during_reception(dut):
 
 @cocotb.test(timeout_time=500, timeout_unit="ms")
 async def test_full_nec_to_uart(dut):
-    """End-to-end: Send IR frame (addr=0x00, cmd=0x45) and verify UART output 'A:00 C:45\\n'."""
+    """End-to-end: Send IR frame and verify UART output with protocol prefix."""
     await setup(dut)
 
     # Start UART collector in background
@@ -129,7 +129,7 @@ async def test_full_nec_to_uart(dut):
         "Timeout while waiting for UART output in test_full_nec_to_uart",
     )
 
-    expected = "A:00 C:45\n"
+    expected = "P:NEC      A:00 C:45\n"
     assert uart_result["text"] == expected, \
         f"Expected UART output '{expected!r}', got '{uart_result['text']!r}'"
 
@@ -154,7 +154,7 @@ async def test_full_nec_to_uart_nonzero_addr(dut):
         "Timeout while waiting for UART output in test_full_nec_to_uart_nonzero_addr",
     )
 
-    expected = "A:AB C:CD\n"
+    expected = "P:NEC      A:AB C:CD\n"
     assert uart_result["text"] == expected, \
         f"Expected UART output '{expected!r}', got '{uart_result['text']!r}'"
 
@@ -179,7 +179,7 @@ async def test_two_consecutive_frames(dut):
         "Timeout while waiting for first UART frame in test_two_consecutive_frames",
     )
 
-    assert uart1["text"] == "A:00 C:45\n", f"First frame: got '{uart1['text']!r}'"
+    assert uart1["text"] == "P:NEC      A:00 C:45\n", f"First frame: got '{uart1['text']!r}'"
 
     # Small gap between frames
     await Timer(5_000_000, unit="ns")
@@ -199,7 +199,7 @@ async def test_two_consecutive_frames(dut):
         "Timeout while waiting for second UART frame in test_two_consecutive_frames",
     )
 
-    assert uart2["text"] == "A:04 C:08\n", f"Second frame: got '{uart2['text']!r}'"
+    assert uart2["text"] == "P:NEC      A:04 C:08\n", f"Second frame: got '{uart2['text']!r}'"
 
 
 @cocotb.test(timeout_time=1, timeout_unit="sec")
@@ -222,7 +222,7 @@ async def test_repeat_code_to_uart(dut):
         "Timeout while waiting for first UART frame in test_repeat_code_to_uart",
     )
 
-    assert uart1["text"] == "A:00 C:45\n", f"Original frame: got '{uart1['text']!r}'"
+    assert uart1["text"] == "P:NEC      A:00 C:45\n", f"Original frame: got '{uart1['text']!r}'"
 
     # Small gap (NEC repeat comes 110ms after frame, but we just need some space)
     await Timer(5_000_000, unit="ns")
@@ -242,7 +242,7 @@ async def test_repeat_code_to_uart(dut):
         "Timeout while waiting for repeated UART frame in test_repeat_code_to_uart",
     )
 
-    assert uart2["text"] == "A:00 C:45\n", \
+    assert uart2["text"] == "P:NEC      A:00 C:45\n", \
         f"Repeat should produce same output, got '{uart2['text']!r}'"
 
 

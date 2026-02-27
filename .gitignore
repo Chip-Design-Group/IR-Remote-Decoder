@@ -21,6 +21,10 @@ vivado_project/
 *.bit
 *.bin
 *.jou
+/TopLevel/vivado*
+/TopLevel/src/runs/
+/TopLevel/runs/*
+wifi_button/build
 *.log
 *.str
 *.pb

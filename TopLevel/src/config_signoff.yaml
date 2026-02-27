@@ -1,0 +1,92 @@
+meta:
+  version: 3
+  flow: Chip
+
+DESIGN_NAME: ir_recorder_replay_padframe_top
+USE_SLANG: true
+
+VERILOG_FILES:
+  - dir::../../IRRecorder_Replay/Types_PKG/src/ir_types_pkg.sv
+  - dir::../../IRDecoder/EdgeDetector/src/edge_detector.sv
+  - dir::../../IRDecoder/PulseTimer/src/pulse_timer.sv
+  - dir::../../IRDecoder/NECDecoder/src/nec_decoder.sv
+  - dir::../../IRDecoder/OutputFormatter/src/output_formatter.sv
+  - dir::../../IRDecoder/UART_TX/src/uart_tx.sv
+  - dir::../../IRRecorder_Replay/Recorder/src/ir_recorder.sv
+  - dir::../../IRRecorder_Replay/STORAGE_BRAM/src/ir_storage_bram.sv
+  - dir::../../IRRecorder_Replay/Replay_FSM/src/ir_replay_fsm.sv
+  - dir::../../IRRecorder_Replay/nec_encoder/src/nec_encoder.sv
+  - dir::../../IRRecorder_Replay/TX/src/ir_tx.sv
+  - dir::ir_recorder_replay_top.sv
+  - dir::ir_recorder_replay_chip_top.sv
+  - dir::ir_recorder_replay_padframe_top.sv
+
+CLOCK_PORT: io_clk_pad
+CLOCK_PERIOD: 100
+PNR_SDC_FILE: dir::constraints/pnr.sdc
+SIGNOFF_SDC_FILE: dir::constraints/signoff.sdc
+
+FP_SIZING: absolute
+DIE_AREA: [0, 0, 1400, 1400]
+CORE_AREA: [358.0, 358.0, 1042.0, 1042.0]
+
+VDD_NETS: ["VDD"]
+GND_NETS: ["VSS"]
+
+PDN_CORE_RING: true
+PDN_CORE_RING_CONNECT_TO_PADS: false
+PDN_ENABLE_PINS: true
+PDN_CORE_RING_VWIDTH: 15
+PDN_CORE_RING_HWIDTH: 15
+PDN_CORE_RING_VSPACING: 2.5
+PDN_CORE_RING_HSPACING: 2.5
+PDN_CORE_RING_VOFFSET: 2.5
+PDN_CORE_RING_HOFFSET: 2.5
+PDN_VPITCH: 40
+PDN_HPITCH: 40
+PDN_VWIDTH: 3.5
+PDN_HWIDTH: 3.5
+PDN_VSPACING: 2.5
+PDN_HSPACING: 2.5
+PDN_VOFFSET: 2.5
+PDN_HOFFSET: 2.5
+ERROR_ON_PDN_VIOLATIONS: false
+
+PRIMARY_GDSII_STREAMOUT_TOOL: klayout
+MAGIC_EXT_UNIQUE: notopports
+PAD_BONDPAD_NAME: null
+
+PL_TARGET_DENSITY_PCT: 40
+GPL_CELL_PADDING: 2
+ERROR_ON_SYNTH_CHECKS: true
+WIRE_LENGTH_THRESHOLD: 1500
+
+PAD_WEST:
+  - u_pad_clk
+  - u_pad_rst_n
+  - u_pad_ir_in
+  - u_pad_record_req
+
+PAD_SOUTH:
+  - u_pad_replay_req
+  - u_pad_slot_sel_0
+  - u_pad_slot_sel_1
+  - u_pad_slot_sel_2
+
+PAD_EAST:
+  - u_pad_ir_tx_npn_drive
+  - u_pad_uart_tx
+  - u_pad_receiving
+
+PAD_NORTH:
+  - u_pad_valid
+  - u_pad_recording
+
+PAD_PLACE_IO_TERMINALS:
+  - "sg13g2_IOPadIn/pad"
+  - "sg13g2_IOPadOut30mA/pad"
+
+IGNORE_DISCONNECTED_MODULES:
+  - ir_recorder_replay_padframe_top
+
+ERROR_ON_DISCONNECTED_PINS: false

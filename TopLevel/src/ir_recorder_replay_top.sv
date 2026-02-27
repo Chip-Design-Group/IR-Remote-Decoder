@@ -15,14 +15,18 @@
 // Outputs:
 //   ir_tx_npn_drive, ir_led_out
 //   uart_tx
-//   ld7..ld0 (status LEDs)
 //   rec_done, rep_done, busy, error
+//   status flags for wrapper/debug
 //------------------------------------------------------------------------------
+
+import ir_types_pkg::*;
 
 module ir_recorder_replay_top #(
   parameter int CORE_CLK_HZ     = 10_000_000,
   parameter int RECORD_TIMEOUT_CYCLES = (3 * CORE_CLK_HZ), // ~3s at 10MHz core
-  parameter int TX_CARRIER_HZ   = 38_000
+  parameter int TX_CARRIER_HZ   = 38_000,
+  parameter int UART_BAUD       = 1_000_000,
+  parameter bit RAW_UART_DEBUG  = 1'b0
 ) (
   input  logic                  clk,
   input  logic                  rst_n,
@@ -40,14 +44,14 @@ module ir_recorder_replay_top #(
   output logic                  ir_tx_npn_drive,
   output logic                  ir_led_out,
   output logic                  uart_tx,
-  output logic                  ld7,
-  output logic                  ld6,
-  output logic                  ld5,
-  output logic                  ld4,
-  output logic                  ld3,
-  output logic                  ld2,
-  output logic                  ld1,
-  output logic                  ld0,
+
+  // Status outputs for wrapper/debug
+  output logic                  stat_receiving,     // IR activity
+  output logic                  stat_code_valid,    // Valid code decoded
+  output logic                  stat_record_active, // Recording in progress
+  output logic                  stat_uart_active,   // UART TX in progress
+  output logic                  stat_error,         // Error condition
+
   output logic                  rec_done,
   output logic                  rep_done,
   output logic                  busy,
@@ -57,17 +61,14 @@ module ir_recorder_replay_top #(
   // ========================================================
   // Clocking and timing constants
   // ========================================================
-  // - hardware: divide 100 MHz input clock down to 10 MHz core clock
-  // - simulation: bypass divider and use testbench clock directly
+  // Input clk is expected to be the core clock (e.g. 10MHz).
   localparam int TICK_US_DIV = (CORE_CLK_HZ / 1_000_000 > 0) ? (CORE_CLK_HZ / 1_000_000) : 1;
   localparam int TICK_US_W   = (TICK_US_DIV > 1) ? $clog2(TICK_US_DIV) : 1;
-  localparam int UART_CLKS_PER_BIT = (CORE_CLK_HZ / 9600 > 0) ? (CORE_CLK_HZ / 9600) : 1;
+  localparam int UART_CLKS_PER_BIT = (CORE_CLK_HZ / UART_BAUD > 0) ? (CORE_CLK_HZ / UART_BAUD) : 1;
 
   logic [TICK_US_W-1:0] tick_cnt_q;
   logic                 tick_us;
   logic                 clk_core;
-  logic                 clk_10mhz;
-  logic [3:0]           clk_div_cnt_q;
 
   logic record_prev_q, replay_prev_q;
   logic record_pulse, replay_pulse;
@@ -80,63 +81,44 @@ module ir_recorder_replay_top #(
   logic [17:0]          pulse_width;
   logic                 dec_data_valid_i, dec_error_i, dec_receiving_i;
   logic [7:0]           dec_addr_i, dec_cmd_i;
+  logic [4:0]           dec_protocol_i;
+  logic [47:0]          dec_frame_data_i;
+  logic [5:0]           dec_frame_bits_i;
+  logic [7:0]           ext_addr;
+  logic [7:0]           ext_cmd;
+  logic [4:0]           ext_protocol_id;
+  logic [47:0]          ext_frame_data;
 
   logic                 dec_valid_mux;
   logic                 dec_error_mux;
-  logic [31:0]          dec_payload_mux;
-  logic [31:0]          rec_payload;
+
+  ir_payload_t          rec_payload;
 
   logic                 mem_wr_en;
   logic [2:0]           mem_wr_addr;
-  logic [31:0]          mem_wr_data;
+  ir_word_t             mem_wr_data;
   logic                 mem_rd_en;
-  logic [2:0]           mem_rd_addr;
-  logic [31:0]          mem_rd_data;
+  ir_slot_t             mem_rd_addr;
+  ir_word_t             mem_rd_data;
   logic                 mem_rd_valid;
 
   logic                 rec_busy, rec_done_i, rec_error;
   logic                 rep_busy, rep_done_i, rep_error;
   logic                 enc_start, enc_mark_active, enc_frame_active, enc_frame_done, enc_busy, enc_error;
   logic                 tx_ready, enc_ready;
-  logic [31:0]          enc_payload;
-  logic [7:0]           uart_data;
-  logic                 uart_tx_req, uart_ready;
+  ir_payload_t          enc_payload;
+  logic [7:0]           uart_data, uart_data_raw, uart_data_fmt;
+  logic                 uart_tx_req, uart_tx_req_raw, uart_tx_req_fmt, uart_ready;
+  logic                 uart_ready_raw, uart_ready_fmt;
   logic [7:0]           uart_addr, uart_cmd;
+  logic [4:0]           uart_protocol_id;
   logic                 error_raw;
 
-  localparam int LED_HB_BIT = 23;
-  localparam int LED_REC_BLINK_BIT = 22;
-  localparam int LED_PULSE_TICKS = CORE_CLK_HZ / 5; // ~200ms
-  localparam int LED_CNT_W = (LED_PULSE_TICKS > 1) ? $clog2(LED_PULSE_TICKS) : 1;
-  logic [31:0]          hb_counter_q;
-  logic [LED_CNT_W-1:0] led_ok_cnt_q, led_err_cnt_q, led_uart_cnt_q;
-
-`ifndef SIMULATION
-  // Divide by 10 by toggling every 5 cycles.
-  always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
-      clk_div_cnt_q <= '0;
-      clk_10mhz     <= 1'b0;
-    end else begin
-      if (clk_div_cnt_q == 4) begin
-        clk_div_cnt_q <= '0;
-        clk_10mhz     <= ~clk_10mhz;
-      end else begin
-        clk_div_cnt_q <= clk_div_cnt_q + 1'b1;
-      end
-    end
-  end
-`else
-  // Simulation: feed core clock directly from the testbench clock.
-  assign clk_10mhz = clk;
-`endif
-
-`ifdef SIMULATION
-  assign clk_core = clk_10mhz;
-`else
-  // Hardware: route the derived clock via global buffer.
-  BUFG clk_core_bufg_i (.I(clk_10mhz), .O(clk_core));
-`endif
+  assign clk_core = clk;
+  assign ext_addr = dec_payload[23:16];
+  assign ext_cmd  = dec_payload[15:8];
+  assign ext_protocol_id = dec_payload[7:3];
+  assign ext_frame_data = {16'h0000, {~ext_cmd, ext_cmd, ~ext_addr, ext_addr}};
 
   // 1 us pulse generator in core clock domain.
   always_ff @(posedge clk_core or negedge rst_n) begin
@@ -150,42 +132,6 @@ module ir_recorder_replay_top #(
         tick_us    <= 1'b1;
       end else begin
         tick_cnt_q <= tick_cnt_q + 1'b1;
-      end
-    end
-  end
-
-  // Slow heartbeat counter for LD7.
-  always_ff @(posedge clk_core or negedge rst_n) begin
-    if (!rst_n) begin
-      hb_counter_q <= '0;
-    end else begin
-      hb_counter_q <= hb_counter_q + 1'b1;
-    end
-  end
-
-  // Pulse stretcher so short events are visible on LEDs.
-  always_ff @(posedge clk_core or negedge rst_n) begin
-    if (!rst_n) begin
-      led_ok_cnt_q   <= '0;
-      led_err_cnt_q  <= '0;
-      led_uart_cnt_q <= '0;
-    end else begin
-      if (dec_valid_mux) begin
-        led_ok_cnt_q <= LED_PULSE_TICKS - 1;
-      end else if (led_ok_cnt_q != '0) begin
-        led_ok_cnt_q <= led_ok_cnt_q - 1'b1;
-      end
-
-      if (error_raw) begin
-        led_err_cnt_q <= LED_PULSE_TICKS - 1;
-      end else if (led_err_cnt_q != '0) begin
-        led_err_cnt_q <= led_err_cnt_q - 1'b1;
-      end
-
-      if (uart_tx_req) begin
-        led_uart_cnt_q <= LED_PULSE_TICKS - 1;
-      end else if (led_uart_cnt_q != '0) begin
-        led_uart_cnt_q <= led_uart_cnt_q - 1'b1;
       end
     end
   end
@@ -205,14 +151,14 @@ module ir_recorder_replay_top #(
   assign replay_pulse = replay_req & ~replay_prev_q;
 
   // Latch record request until recorder finishes (done/error).
+  // No busy guard: short ESP32 pulses must not be dropped.
   always_ff @(posedge clk_core or negedge rst_n) begin
     if (!rst_n) begin
       record_hold_q <= 1'b0;
     end else begin
       if (rec_done_i || rec_error) begin
         record_hold_q <= 1'b0;
-      end else if (record_pulse && !busy) begin
-        // Keep recording active until a valid decoded frame is stored.
+      end else if (record_pulse) begin
         record_hold_q <= 1'b1;
       end
     end
@@ -256,6 +202,9 @@ module ir_recorder_replay_top #(
     .decode_error(dec_error_i),
     .address    (dec_addr_i),
     .command    (dec_cmd_i),
+    .protocol_id(dec_protocol_i),
+    .frame_data (dec_frame_data_i),
+    .frame_bits (dec_frame_bits_i),
     .receiving  (dec_receiving_i)
   );
 
@@ -264,28 +213,28 @@ module ir_recorder_replay_top #(
   // - external decoded stream for test/debug injection.
   always_comb begin
     if (use_external_decoder_data) begin
-      dec_valid_mux   = dec_valid;
-      dec_payload_mux = dec_payload;
-      dec_error_mux   = 1'b0;
+      dec_valid_mux = dec_valid;
+      dec_error_mux = 1'b0;
+      uart_addr     = ext_addr;
+      uart_cmd      = ext_cmd;
+      uart_protocol_id = ext_protocol_id;
+      rec_payload.frame_data = ext_frame_data;
+      rec_payload.frame_bits = 6'd32;
+      rec_payload.protocol_id = ext_protocol_id;
+      rec_payload.flags = dec_payload[7:0];
+      rec_payload.flags[IR_FLAG_VALID_BIT] = 1'b1;
     end else begin
-      dec_valid_mux           = dec_data_valid_i;
-      // Internal decoder provides 8-bit NEC address. For replay encoding we
-      // store it in 8-bit NEC form: {addr_inv, addr}.
-      dec_payload_mux[31:16]  = {~dec_addr_i, dec_addr_i};
-      dec_payload_mux[15:8]   = dec_cmd_i;
-      dec_payload_mux[7:0]    = 8'h00;
-      dec_error_mux           = dec_error_i;
+      dec_valid_mux = dec_data_valid_i;
+      dec_error_mux = dec_error_i;
+      uart_addr     = dec_addr_i;
+      uart_cmd      = dec_cmd_i;
+      uart_protocol_id = dec_protocol_i;
+      rec_payload.frame_data = dec_frame_data_i;
+      rec_payload.frame_bits = dec_frame_bits_i;
+      rec_payload.protocol_id = dec_protocol_i;
+      rec_payload.flags = IR_FLAGS_DEFAULT;
+      rec_payload.flags[IR_FLAG_VALID_BIT] = 1'b1;
     end
-  end
-
-  // Build recorder payload:
-  // - force slot-valid bit
-  // - expose address/command bytes for UART formatter.
-  always_comb begin
-    rec_payload = dec_payload_mux;
-    rec_payload[0] = 1'b1; // valid bit
-    uart_addr = dec_payload_mux[23:16];
-    uart_cmd  = dec_payload_mux[15:8];
   end
 
   // -------------------------
@@ -371,17 +320,52 @@ module ir_recorder_replay_top #(
   // -------------------------
   // UART diagnostics datapath
   // -------------------------
+  // Always build both formatters. In RAW mode we still prioritize decoded frames
+  // when available, so protocol recognition stays visible during pulse debugging.
+  assign uart_ready_fmt = uart_ready;
+  assign uart_ready_raw = uart_ready & ~uart_tx_req_fmt;
+
+  raw_pulse_uart_formatter u_raw_pulse_uart_formatter (
+    .clk         (clk_core),
+    .rst_n       (rst_n),
+    .pulse_done  (pulse_done),
+    .pulse_width (pulse_width),
+    .pulse_level (pulse_level),
+    .pulse_timeout(timeout),
+    .uart_ready  (uart_ready_raw),
+    .uart_data   (uart_data_raw),
+    .uart_tx_req (uart_tx_req_raw)
+  );
+
   output_formatter u_output_formatter (
     .clk        (clk_core),
     .rst_n      (rst_n),
     .address    (uart_addr),
     .command    (uart_cmd),
+    .protocol_id(uart_protocol_id),
     .valid_in   (dec_valid_mux),
     .decode_error(dec_error_mux),
-    .uart_ready (uart_ready),
-    .uart_data  (uart_data),
-    .uart_tx_req(uart_tx_req)
+    .frame_data (dec_frame_data_i),
+    .frame_bits (dec_frame_bits_i),
+    .uart_ready (uart_ready_fmt),
+    .uart_data  (uart_data_fmt),
+    .uart_tx_req(uart_tx_req_fmt)
   );
+
+  always_comb begin
+    if (RAW_UART_DEBUG) begin
+      if (uart_tx_req_fmt) begin
+        uart_data   = uart_data_fmt;
+        uart_tx_req = uart_tx_req_fmt;
+      end else begin
+        uart_data   = uart_data_raw;
+        uart_tx_req = uart_tx_req_raw;
+      end
+    end else begin
+      uart_data   = uart_data_fmt;
+      uart_tx_req = uart_tx_req_fmt;
+    end
+  end
 
   uart_tx #(
     .CLOCKS_PER_BIT(UART_CLKS_PER_BIT)
@@ -406,23 +390,11 @@ module ir_recorder_replay_top #(
   assign error_raw = rec_error || rep_error || enc_error;
   assign error     = error_raw;
 
-  // LED mapping (LD7..LD0):
-  // LD7: slow heartbeat
-  // LD6: IR receive activity
-  // LD5: record active (blink); replay active (solid); when idle, error pulse (stretched)
-  // LD4: decode-OK pulse (stretched)
-  // LD3: error pulse (stretched)
-  // LD2: replay/transmit activity
-  // LD1: global busy
-  // LD0: UART activity pulse (stretched)
-  assign ld7 = hb_counter_q[LED_HB_BIT];
-  assign ld6 = dec_receiving_i;
-  assign ld5 = record_hold_q ? hb_counter_q[LED_REC_BLINK_BIT] :
-               ((rep_busy || enc_busy) ? 1'b1 : (led_err_cnt_q != '0));
-  assign ld4 = (led_ok_cnt_q  != '0);
-  assign ld3 = (led_err_cnt_q != '0);
-  assign ld2 = rep_busy || enc_busy;
-  assign ld1 = busy;
-  assign ld0 = (led_uart_cnt_q != '0);
+  // Status mapping
+  assign stat_receiving = dec_receiving_i;
+  assign stat_code_valid = dec_valid_mux;
+  assign stat_record_active = record_hold_q;
+  assign stat_uart_active = uart_tx_req;
+  assign stat_error = error_raw;
 
 endmodule

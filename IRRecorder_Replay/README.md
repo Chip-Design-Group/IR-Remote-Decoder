@@ -13,7 +13,7 @@ This turns the pure decoder into an **active mini universal remote control**.
 
 ## Features
 
-- Recording of **NEC-compatible IR codes**
+- Recording of **NEC-compatible IR codes** plus the **Samsung32/Samsung36** variants.
 - Storage in **FPGA-internal Block RAM**
 - Replay of stored codes at the push of a button
 - Pure hardware approach (no softcore, no external RAM)
@@ -25,14 +25,17 @@ This turns the pure decoder into an **active mini universal remote control**.
 ## Design Philosophy
 
 **No raw pulses or timings** are stored.
-Instead, the system stores the **already decoded NEC data**:
+Instead, the system captures the **decoded frame metadata** so the encoder can faithfully replay NEC, Samsung32, and Samsung36:
 
 | Field | Width |
 |---|---|
-| Address | 16 Bit |
-| Command | 8 Bit |
-| Flags (e.g. Repeat/Valid) | 8 Bit |
-| **Sum** | **32 Bit per Code** |
+| Frame Data (LSB-first bits) | 48 Bit |
+| Bit Count (`frame_bits`) | 6 Bit |
+| Protocol Identifier | 5 Bit |
+| Flags (Valid, Repeat, …) | 8 Bit |
+| **Sum** | **67 Bit per Code** |
+
+Storing the full `frame_data` plus the detected `protocol_id` lets the encoder recreate Samsung leaders, insert the 36-bit split-sync, and keep NEC repeat semantics without logging individual carrier pulses.
 
 Advantages:
 - Very low memory usage
@@ -67,10 +70,10 @@ Buttons ──► Replay_FSM ──► NEC_Encoder ──► IR_TX ──► NPN
 
 ## Memory Organization (BRAM)
 
-- Storage as 32-bit words
+- Storage as 67-bit words (frame data + metadata)
 - Example: 8 memory slots
 ```
-Slot 0: { addr[15:0], cmd[7:0], flags[7:0] }
+Slot 0: { frame_data[47:0], frame_bits[5:0], protocol_id[4:0], flags[7:0] }
 Slot 1: { ... }
 ...
 Slot 7

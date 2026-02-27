@@ -358,6 +358,7 @@ module ir_decoder_top (
     logic        decode_error;
     logic [7:0]  address;
     logic [7:0]  command;
+    logic [4:0]  protocol_id;
     logic        receiving;
 
     // ========================================================
@@ -406,6 +407,7 @@ module ir_decoder_top (
         .decode_error (decode_error),
         .address      (address),
         .command      (command),
+        .protocol_id  (protocol_id),
         .receiving    (receiving)
     );
 
@@ -415,6 +417,7 @@ module ir_decoder_top (
         .rst_n        (rst_n_decode),
         .address      (address),
         .command      (command),
+        .protocol_id  (protocol_id),
         .valid_in     (data_valid),
         .decode_error (decode_error),
         .uart_ready   (uart_ready),
