@@ -11,26 +11,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Repo auschecken
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: System-Pakete installieren (Icarus Verilog)
+      - name: Install System Packages (Icarus Verilog)
         run: |
           sudo apt-get update
           sudo apt-get install -y iverilog
 
-      - name: Python einrichten
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Python-Abhängigkeiten installieren
+      - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install cocotb pytest
+          pip install -r requirements.txt
 
-      - name: Cocotb Test ausführen
+      - name: Run Tests
         env:
           SIM: icarus
         run: |
-          python IRDecoder/TopLevel/test/test_ir_decoder_integration.py
+          pytest TopLevel/test/test_ir_closed_loop.py

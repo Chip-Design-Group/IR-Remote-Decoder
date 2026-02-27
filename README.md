@@ -1,5 +1,8 @@
 # IR Remote Decoder Project
 
+![CI Status](https://github.com/MaikUnglert/IR-Remote-Decoder/actions/workflows/ci.yml/badge.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Welcome to the **IR Remote Decoder** project!
 
 This repository contains the complete source code for a hardware-based Infrared Receiver/Decoder and Recorder/Replay system, optimized for FPGAs (specifically strictly designed for usage with IHP SG13G2 technology, but generally usable).

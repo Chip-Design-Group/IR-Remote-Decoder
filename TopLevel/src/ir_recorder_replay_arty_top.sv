@@ -2,15 +2,18 @@
 
 //------------------------------------------------------------------------------
 // Board wrapper for Arty A7-100T
-// Exposes only real board I/O and ties off debug/config ports of the core.
-// Incorporates clock generation (100MHz -> 10MHz) and debug LED logic.
+// Maps the 4 board buttons directly to 4 storage slots:
+// - short press: replay slot
+// - long press : record slot
 //------------------------------------------------------------------------------
 module ir_recorder_replay_arty_top (
   input  logic clk_PAD,
   input  logic rst_n_PAD,
   input  logic ir_in_PAD,
-  input  logic btn_record_PAD,
-  input  logic btn_replay_PAD,
+  input  logic btn0_PAD,
+  input  logic btn1_PAD,
+  input  logic btn2_PAD,
+  input  logic btn3_PAD,
 
   // ESP32-C3 Software-SPI interface
   input  logic spi_clk_PAD,
@@ -24,62 +27,15 @@ module ir_recorder_replay_arty_top (
   output logic led7_PAD  // heartbeat
 );
 
-  localparam int CORE_CLK_HZ = 10_000_000;
-  localparam int TX_TEST_CARRIER_HZ = 38_000;
-  localparam int TX_TEST_HALF_PERIOD = (CORE_CLK_HZ / (2 * TX_TEST_CARRIER_HZ) > 0)
-                                       ? (CORE_CLK_HZ / (2 * TX_TEST_CARRIER_HZ)) : 1;
-  localparam int TX_TEST_DIV_W = (TX_TEST_HALF_PERIOD > 1) ? $clog2(TX_TEST_HALF_PERIOD) : 1;
-  localparam int TICK_US_DIV = (CORE_CLK_HZ / 1_000_000 > 0) ? (CORE_CLK_HZ / 1_000_000) : 1;
-  localparam int TICK_US_W = (TICK_US_DIV > 1) ? $clog2(TICK_US_DIV) : 1;
-  
-  // ========================================================
-  // Clock Generation (100MHz PAD -> 10MHz Core)
-  // ========================================================
-  logic       clk_10mhz;
-  logic       clk_core;
-  logic [3:0] clk_div_cnt_q;
+  localparam int LONG_PRESS_CYCLES = 60_000_000; // 0.6s @ 100MHz
+  localparam int REQ_PULSE_CYCLES  = 200_000;    // 2ms @ 100MHz
+  localparam int BTN_CNT_W = $clog2(LONG_PRESS_CYCLES + 1);
+  localparam int REQ_CNT_W = $clog2(REQ_PULSE_CYCLES + 1);
 
-  always_ff @(posedge clk_PAD or negedge rst_n_PAD) begin
-    if (!rst_n_PAD) begin
-      clk_div_cnt_q <= '0;
-      clk_10mhz     <= 1'b0;
-    end else begin
-      if (clk_div_cnt_q == 4) begin
-        clk_div_cnt_q <= '0;
-        clk_10mhz     <= ~clk_10mhz;
-      end else begin
-        clk_div_cnt_q <= clk_div_cnt_q + 1'b1;
-      end
-    end
-  end
-
-  // Use BUFG for the core clock distribution
-  BUFG clk_core_bufg_i (.I(clk_10mhz), .O(clk_core));
-
-  // ========================================================
-  // Status LED Logic
-  // ========================================================
-  localparam int LED_HB_BIT = 23;         // ~0.8s period at 10MHz
-  localparam int LED_REC_BLINK_BIT = 20;  // ~0.1s period (fast blink = recording)
-  localparam int LED_PULSE_TICKS = CORE_CLK_HZ / 5; // ~200ms stretch
-  localparam int LED_CNT_W = (LED_PULSE_TICKS > 1) ? $clog2(LED_PULSE_TICKS) : 1;
-
-  logic [31:0]          hb_counter_q;
-  logic [LED_CNT_W-1:0] led_ok_cnt_q;     // For valid code
-  logic [LED_CNT_W-1:0] led_err_cnt_q;    // For error
-  logic [LED_CNT_W-1:0] led_uart_cnt_q;   // For UART activity
-
-  // Core status signals
-  logic stat_receiving;
-  logic stat_code_valid;
-  logic stat_record_active;
-  logic stat_uart_active;
-  logic stat_error;
-
+  logic ld7, ld6, ld5, ld4, ld3, ld2, ld1, ld0;
   logic rec_done, rep_done, busy, error;
   logic ir_led_alias_unused;
   logic ir_tx_npn_drive;
-  logic ir_tx_test;
 
   // ESP32 SPI receiver outputs
   logic esp_replay_req, esp_record_req;
@@ -89,16 +45,6 @@ module ir_recorder_replay_arty_top (
   // Combined control signals (button OR ESP32)
   logic combined_record_req, combined_replay_req;
   logic [5:0] combined_slot_sel;
-  logic btn_replay_prev_q;
-  logic tx_test_active;
-  logic tx_test_busy_q;
-  logic tx_test_mark_q;
-  logic [4:0] tx_test_step_q;
-  logic [13:0] tx_test_us_cnt_q;
-  logic [TX_TEST_DIV_W-1:0] tx_test_div_q;
-  logic tx_test_carrier_q;
-  logic [TICK_US_W-1:0] tick_us_div_q;
-  logic tick_us;
 
   // Heartbeat counter
   always_ff @(posedge clk_core or negedge rst_n_PAD) begin
@@ -139,139 +85,113 @@ module ir_recorder_replay_arty_top (
     end
   end
 
-  // 1us tick for local test frame timing.
-  always_ff @(posedge clk_core or negedge rst_n_PAD) begin
+  logic [3:0] btn_async;
+  logic [3:0] btn_sync_q, btn_sync_qq;
+  logic [3:0] btn_prev_q;
+  logic [BTN_CNT_W-1:0] press_cnt_q [0:3];
+
+  logic [2:0] slot_sel_q;
+  logic record_req_q, replay_req_q;
+  logic record_pending_q, replay_pending_q;
+  logic [2:0] record_slot_q, replay_slot_q;
+  logic [REQ_CNT_W-1:0] req_cnt_q;
+
+  integer i;
+
+  assign btn_async = {btn3_PAD, btn2_PAD, btn1_PAD, btn0_PAD};
+
+  // Synchronize buttons into clk_PAD domain.
+  always_ff @(posedge clk_PAD or negedge rst_n_PAD) begin
     if (!rst_n_PAD) begin
-      tick_us_div_q <= '0;
-      tick_us <= 1'b0;
+      btn_sync_q  <= '0;
+      btn_sync_qq <= '0;
+      btn_prev_q  <= '0;
     end else begin
-      tick_us <= 1'b0;
-      if (tick_us_div_q == TICK_US_DIV - 1) begin
-        tick_us_div_q <= '0;
-        tick_us <= 1'b1;
-      end else begin
-        tick_us_div_q <= tick_us_div_q + 1'b1;
-      end
+      btn_sync_q  <= btn_async;
+      btn_sync_qq <= btn_sync_q;
+      btn_prev_q  <= btn_sync_qq;
     end
   end
 
-  function automatic logic [13:0] tx_step_us(input logic [4:0] idx);
-    case (idx)
-      5'd0:  tx_step_us = 14'd8894;
-      5'd1:  tx_step_us = 14'd4057;
-      5'd2:  tx_step_us = 14'd532;
-      5'd3:  tx_step_us = 14'd502;
-      5'd4:  tx_step_us = 14'd534;
-      5'd5:  tx_step_us = 14'd503;
-      5'd6:  tx_step_us = 14'd533;
-      5'd7:  tx_step_us = 14'd503;
-      5'd8:  tx_step_us = 14'd533;
-      5'd9:  tx_step_us = 14'd503;
-      5'd10: tx_step_us = 14'd533;
-      5'd11: tx_step_us = 14'd1033;
-      5'd12: tx_step_us = 14'd532;
-      5'd13: tx_step_us = 14'd503;
-      5'd14: tx_step_us = 14'd531;
-      5'd15: tx_step_us = 14'd1031;
-      5'd16: tx_step_us = 14'd531;
-      5'd17: tx_step_us = 14'd503;
-      5'd18: tx_step_us = 14'd531;
-      default: tx_step_us = 14'd0;
-    endcase
-  endfunction
-
-  // One-shot TX test frame on replay button edge.
-  // This validates the JA2 transmit path with a NEC-like waveform.
-  always_ff @(posedge clk_core or negedge rst_n_PAD) begin
+  // Press classification and request generation.
+  always_ff @(posedge clk_PAD or negedge rst_n_PAD) begin
     if (!rst_n_PAD) begin
-      btn_replay_prev_q <= 1'b0;
-      tx_test_busy_q    <= 1'b0;
-      tx_test_mark_q    <= 1'b0;
-      tx_test_step_q    <= 5'd0;
-      tx_test_us_cnt_q  <= 14'd0;
-      tx_test_div_q     <= '0;
-      tx_test_carrier_q <= 1'b0;
+      for (i = 0; i < 4; i = i + 1) begin
+        press_cnt_q[i] <= '0;
+      end
+      slot_sel_q       <= 3'd0;
+      record_req_q     <= 1'b0;
+      replay_req_q     <= 1'b0;
+      record_pending_q <= 1'b0;
+      replay_pending_q <= 1'b0;
+      record_slot_q    <= 3'd0;
+      replay_slot_q    <= 3'd0;
+      req_cnt_q        <= '0;
     end else begin
-      btn_replay_prev_q <= btn_replay_PAD;
+      record_req_q <= 1'b0;
+      replay_req_q <= 1'b0;
 
-      if (btn_replay_PAD && !btn_replay_prev_q) begin
-        tx_test_busy_q   <= 1'b1;
-        tx_test_mark_q   <= 1'b1;
-        tx_test_step_q   <= 5'd0;
-        tx_test_us_cnt_q <= 14'd0;
-      end else if (tx_test_busy_q && tick_us) begin
-        if (tx_test_us_cnt_q == tx_step_us(tx_test_step_q) - 1) begin
-          tx_test_us_cnt_q <= 14'd0;
-          if (tx_test_step_q == 5'd18) begin
-            tx_test_busy_q <= 1'b0;
-            tx_test_mark_q <= 1'b0;
-          end else begin
-            tx_test_step_q <= tx_test_step_q + 1'b1;
-            tx_test_mark_q <= ~tx_test_mark_q;
+      // Measure press length, classify on falling edge.
+      for (i = 0; i < 4; i = i + 1) begin
+        if (btn_sync_qq[i]) begin
+          if (press_cnt_q[i] < LONG_PRESS_CYCLES) begin
+            press_cnt_q[i] <= press_cnt_q[i] + 1'b1;
           end
-        end else begin
-          tx_test_us_cnt_q <= tx_test_us_cnt_q + 1'b1;
+        end
+
+        if (!btn_sync_qq[i] && btn_prev_q[i]) begin
+          if (press_cnt_q[i] >= LONG_PRESS_CYCLES) begin
+            record_pending_q <= 1'b1;
+            record_slot_q    <= i[2:0];
+          end else begin
+            replay_pending_q <= 1'b1;
+            replay_slot_q    <= i[2:0];
+          end
+          press_cnt_q[i] <= '0;
+        end else if (!btn_sync_qq[i]) begin
+          press_cnt_q[i] <= '0;
         end
       end
 
-      if (tx_test_busy_q && tx_test_mark_q) begin
-        if (tx_test_div_q == TX_TEST_HALF_PERIOD - 1) begin
-          tx_test_div_q     <= '0;
-          tx_test_carrier_q <= ~tx_test_carrier_q;
-        end else begin
-          tx_test_div_q <= tx_test_div_q + 1'b1;
+      // Stretch one request pulse so core edge detection always sees it.
+      if (req_cnt_q != '0) begin
+        req_cnt_q <= req_cnt_q - 1'b1;
+        if (record_pending_q) begin
+          slot_sel_q   <= record_slot_q;
+          record_req_q <= 1'b1;
+        end else if (replay_pending_q) begin
+          slot_sel_q   <= replay_slot_q;
+          replay_req_q <= 1'b1;
         end
-      end else begin
-        tx_test_div_q     <= '0;
-        tx_test_carrier_q <= 1'b0;
+      end else if (!busy) begin
+        if (record_pending_q) begin
+          slot_sel_q   <= record_slot_q;
+          record_req_q <= 1'b1;
+          req_cnt_q    <= REQ_PULSE_CYCLES - 1;
+        end else if (replay_pending_q) begin
+          slot_sel_q   <= replay_slot_q;
+          replay_req_q <= 1'b1;
+          req_cnt_q    <= REQ_PULSE_CYCLES - 1;
+        end
+      end
+
+      // Clear pending after pulse completion.
+      if ((req_cnt_q == 1) && record_pending_q) begin
+        record_pending_q <= 1'b0;
+      end
+      if ((req_cnt_q == 1) && replay_pending_q) begin
+        replay_pending_q <= 1'b0;
       end
     end
   end
 
-  assign tx_test_active = tx_test_busy_q;
-  assign ir_tx_test = (tx_test_busy_q && tx_test_mark_q) ? tx_test_carrier_q : 1'b0;
-
-  // ========================================================
-  // ESP32 SPI Receiver
-  // ========================================================
-  esp32_spi_receiver u_esp32_spi (
-    .clk         (clk_core),
-    .rst_n       (rst_n_PAD),
-    .spi_clk_in  (spi_clk_PAD),
-    .spi_data_in (spi_data_PAD),
-    .replay_req  (esp_replay_req),
-    .record_req  (esp_record_req),
-    .slot_addr   (esp_slot_addr)
-  );
-
-  // Latch esp_slot_addr when a SPI command fires so slot_sel stays
-  // stable after the 1-cycle pulse has gone low.
-  always_ff @(posedge clk_core or negedge rst_n_PAD) begin
-    if (!rst_n_PAD)
-      esp_slot_addr_lat <= 6'd0;
-    else if (esp_record_req || esp_replay_req)
-      esp_slot_addr_lat <= esp_slot_addr;
-  end
-
-  // Merge physical buttons with ESP32 commands.
-  // Latched slot used so value persists after the 1-cycle SPI pulse.
-  assign combined_record_req = btn_record_PAD | esp_record_req;
-  assign combined_replay_req = btn_replay_PAD | esp_replay_req;
-  assign combined_slot_sel   = (esp_record_req || esp_replay_req)
-                               ? esp_slot_addr : esp_slot_addr_lat;
-
-  // Instantiate Core
-  ir_recorder_replay_top #(
-    .CORE_CLK_HZ(CORE_CLK_HZ),
-    .UART_BAUD(1_000_000),
-    .RAW_UART_DEBUG(1'b0)
-  ) u_core (
-    .clk(clk_core),
+  ir_recorder_replay_top u_core (
+    .clk(clk_PAD),
     .rst_n(rst_n_PAD),
     .ir_in(ir_in_PAD),
-    .record_req(combined_record_req),
-    .replay_req(combined_replay_req),
-    .slot_sel(combined_slot_sel),
+    .record_req(record_req_q),
+    .replay_req(replay_req_q),
+    .slot_sel(slot_sel_q),
     .use_external_decoder_data(1'b0),
     .dec_valid(1'b0),
     .dec_payload(32'h0000_0000),
@@ -292,7 +212,11 @@ module ir_recorder_replay_arty_top (
     .error(error)
   );
 
-  assign ir_tx_PAD = ir_tx_npn_drive | ir_tx_test;
+  // Keep visible board LED semantics.
+  assign led7_PAD = ld7;
+  assign led6_PAD = ld6;
+  assign led5_PAD = ld5;
+  assign led4_PAD = ld4;
 
   // LED Mapping
   // LD7: Heartbeat
@@ -304,7 +228,7 @@ module ir_recorder_replay_arty_top (
   // LD5: Fast blink while recording, off after signal stored
   //   Recording  → fast blink (LED_REC_BLINK_BIT ~0.1s)
   //   Done/Idle  → OFF
-  assign led5_PAD = tx_test_active | (stat_record_active ? hb_counter_q[LED_REC_BLINK_BIT] : 1'b0);
+  assign led5_PAD = stat_record_active ? hb_counter_q[LED_REC_BLINK_BIT] : 1'b0;
 
   // LD4: Code Valid Pulse
   assign led4_PAD = (led_ok_cnt_q != '0);
