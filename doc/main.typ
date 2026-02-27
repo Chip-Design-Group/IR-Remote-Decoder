@@ -46,28 +46,62 @@ On the other side the ESP32 serves as the brain of the user interface. It hosts 
     import draw: *
     set-style(line: (stroke: 1pt), content: (padding: .1))
 
-    // Core high level blocks
-    content((0, 2), box(stroke: 1pt, inset: 8pt, align(center)[*Infrared Remote*]), name: "remote")
-    content((8, 2), box(stroke: 1pt, inset: 8pt, align(center)[*FPGA Core* \ Decoder, Storage & Replay]), name: "fpga")
-    content((16, 2), box(stroke: 1pt, inset: 8pt, align(center)[*Target Device* \ TV / LED Strip]), name: "device")
+    // Background boundaries
+    rect((4.5, -1.5), (16.5, 5), stroke: (dash: "dashed", paint: gray, thickness: 1pt), radius: 0.2)
+    content((10.5, 5), text(gray)[*FPGA Core System*], anchor: "south")
 
-    content((0, -1), box(stroke: 1pt, inset: 8pt, align(center)[*Smartphone* \ Web UI]), name: "phone")
-    content((8, -1), box(stroke: 1pt, inset: 8pt, align(center)[*ESP32-C3* \ WiFi Server]), name: "esp")
+    // Nodes (X step: 3, Y step: 2.5)
+    content((0, 0), box(stroke: 1pt, inset: 6pt, align(center)[*Smartphone* \ Web UI]), name: "phone")
+    content((3, 0), box(stroke: 1pt, inset: 6pt, align(center)[*ESP32-C3* \ WiFi Server]), name: "esp")
+    content((6, 0), box(stroke: 1pt, inset: 6pt, align(center)[*SPI* \ *Receiver*]), name: "spi")
+    content((9, 0), box(stroke: 1pt, inset: 6pt, align(center)[*Command* \ *Dispatcher*]), name: "cmd")
 
-    // Connections
-    line("remote", "fpga", mark: (end: ">"), name: "l1")
-    content("l1.mid", text(7pt)[Physical IR Pulses], anchor: "south", padding: 4pt)
+    content((3, 4), box(stroke: 1pt, inset: 6pt, align(center)[*Infrared* \ *Receiver*]), name: "rx")
+    content((6, 4), box(stroke: 1pt, inset: 6pt, align(center)[*Edge* \ *Detector*]), name: "edge")
+    content((9, 4), box(stroke: 1pt, inset: 6pt, align(center)[*Pulse* \ *Timer*]), name: "timer")
+    content((12, 4), box(stroke: 1pt, inset: 6pt, align(center)[*Decoder* \ (NEC, etc.)]), name: "dec")
+    content((15, 4), box(stroke: 1pt, inset: 6pt, align(center)[*Output* \ *Formatter*]), name: "fmt")
 
-    line("fpga", "device", mark: (end: ">"), name: "l2")
-    content("l2.mid", text(7pt)[Physical IR Pulses], anchor: "south", padding: 4pt)
+    content((15, 2.5), box(stroke: 1pt, inset: 6pt, align(center)[*UART* \ *TX*]), name: "uart")
+    content((18, 2.5), box(stroke: 1pt, inset: 6pt, align(center)[*PC Terminal* \ UART Display]), name: "pc")
 
-    line("phone", "esp", mark: (start: ">", end: ">"), name: "l3")
-    content("l3.mid", text(7pt)[HTTP / WiFi], anchor: "south", padding: 4pt)
+    content((12, 2.5), box(stroke: 1pt, inset: 6pt, align(center)[*Recorder* \ *FSM*]), name: "rec")
+    content((12, 1), box(stroke: 1pt, inset: 6pt, align(center)[*Storage* \ *BRAM*]), name: "bram")
+    content((12, -0.5), box(stroke: 1pt, inset: 6pt, align(center)[*Replay* \ *FSM*]), name: "rep")
 
-    line("esp", "fpga", mark: (end: ">"), name: "l4")
-    content("l4.mid", text(7pt)[SPI Commands], anchor: "west", padding: 4pt)
+    content((15, -0.5), box(stroke: 1pt, inset: 6pt, align(center)[*IR* \ *Encoder*]), name: "enc")
+    content((18, -0.5), box(stroke: 1pt, inset: 6pt, align(center)[*Infrared* \ *Transmitter*]), name: "tx")
+
+    // Direct Connections
+    line("rx", "edge", mark: (end: ">"), name: "l1")
+    content("l1.mid", text(6pt)[`ir_in`], anchor: "south", padding: 2pt)
+
+    line("edge", "timer", mark: (end: ">"))
+    line("timer", "dec", mark: (end: ">"))
+    line("dec", "fmt", mark: (end: ">"))
+    line("fmt", "uart", mark: (end: ">"))
+
+    line("uart", "pc", mark: (end: ">"), name: "l3")
+    content("l3.mid", text(6pt)[`tx_out`], anchor: "south", padding: 2pt)
+
+    line("dec", "rec", mark: (end: ">"))
+    line("rec", "bram", mark: (end: ">"))
+
+    line("phone", "esp", mark: (start: ">", end: ">"))
+    line("esp", "spi", mark: (end: ">"))
+    line("spi", "cmd", mark: (end: ">"))
+
+    // Orthogonal routing for CMD -> REC and CMD -> REP to avoid overlaps
+    line("cmd", (9, 2.5), "rec", mark: (end: ">"))
+    line("cmd", (9, -0.5), "rep", mark: (end: ">"))
+
+    line("rep", "bram", mark: (start: ">", end: ">"))
+    line("rep", "enc", mark: (end: ">"))
+
+    line("enc", "tx", mark: (end: ">"), name: "l4")
+    content("l4.mid", text(6pt)[`ir_tx`], anchor: "south", padding: 2pt)
   }),
-  caption: [System architecture overview showing the real world interaction flow],
+  caption: [System architecture diagram detailing the hardware components without clutter],
 ) <fig-system-arch>
 
 == EdgeDetector (Lukas Mittermeier)
