@@ -46,37 +46,43 @@ On the other side the ESP32 serves as the brain of the user interface. It hosts 
     import draw: *
     set-style(line: (stroke: 1pt), content: (padding: .1))
 
-    let b(t) = box(stroke: 1pt, inset: 6pt, align(center)[#text(8pt, t)])
+    let b(t) = box(stroke: 1pt, inset: 4pt, align(center)[#text(7pt, t)])
 
     // FPGA Wrapper Box
-    rect((5.2, -3.2), (22.8, 5.2), stroke: (dash: "dashed", paint: gray, thickness: 1pt), radius: 0.2)
-    content((14.0, 5.2), text(gray)[*FPGA Core System*], anchor: "south")
+    rect((3.6, -3.2), (15.6, 5.2), stroke: (dash: "dashed", paint: gray, thickness: 1pt), radius: 0.2)
+    content((9.6, 5.2), text(gray)[*FPGA Core System*], anchor: "south")
 
-    // External IN
+    // Col 0
     content((0, 0), b([*Smartphone* \ Web UI]), name: "phone")
-    content((3.5, 0), b([*ESP32-C3* \ WiFi Server]), name: "esp")
-    content((3.5, 4), b([*Infrared* \ Receiver]), name: "rx")
 
-    // FPGA Receiver Path (Row 4)
-    content((7.0, 4), b([*Edge* \ Detector]), name: "edge")
-    content((10.5, 4), b([*Pulse* \ Timer]), name: "timer")
-    content((14.0, 4), b([*Decoder* \ (NEC, etc.)]), name: "dec")
-    content((17.5, 4), b([*Output* \ Formatter]), name: "fmt")
-    content((21.0, 4), b([*UART* \ TX]), name: "uart")
+    // Col 1
+    content((2.4, 0), b([*ESP32-C3* \ WiFi Server]), name: "esp")
+    content((2.4, 4), b([*Infrared* \ Receiver]), name: "rx")
 
-    // FPGA Command Path (Row 0)
-    content((7.0, 0), b([*SPI* \ Receiver]), name: "spi")
-    content((10.5, 0), b([*Command* \ Dispatcher]), name: "cmd")
+    // Col 2
+    content((4.8, 4), b([*Edge* \ Detector]), name: "edge")
+    content((4.8, 0), b([*SPI* \ Receiver]), name: "spi")
 
-    // FPGA Storage & Replay (Middle / Bottom)
-    content((14.0, 1.5), b([*Recorder* \ FSM]), name: "rec")
-    content((17.5, 0), b([*Storage* \ BRAM]), name: "bram")
-    content((14.0, -2), b([*Replay* \ FSM]), name: "rep")
-    content((17.5, -2), b([*IR* \ Encoder]), name: "enc")
+    // Col 3
+    content((7.2, 4), b([*Pulse* \ Timer]), name: "timer")
+    content((7.2, 0), b([*Command* \ Dispatcher]), name: "cmd")
 
-    // External OUT
-    content((24.5, 4), b([*PC Terminal* \ UART Display]), name: "pc")
-    content((24.5, -2), b([*Infrared* \ Transmitter]), name: "tx")
+    // Col 4
+    content((9.6, 4), b([*Decoder* \ (NEC, etc.)]), name: "dec")
+    content((9.6, 1.5), b([*Recorder* \ FSM]), name: "rec")
+    content((9.6, -2), b([*Replay* \ FSM]), name: "rep")
+
+    // Col 5
+    content((12.0, 4), b([*Output* \ Formatter]), name: "fmt")
+    content((12.0, 0), b([*Storage* \ BRAM]), name: "bram")
+    content((12.0, -2), b([*IR* \ Encoder]), name: "enc")
+
+    // Col 6
+    content((14.4, 4), b([*UART* \ TX]), name: "uart")
+
+    // Col 7
+    content((16.8, 4), b([*PC Terminal* \ UART Display]), name: "pc")
+    content((16.8, -2), b([*Infrared* \ Transmitter]), name: "tx")
 
     // Connections: Receiver Path
     line("rx", "edge", mark: (end: ">"), name: "l_rx")
@@ -90,7 +96,7 @@ On the other side the ESP32 serves as the brain of the user interface. It hosts 
 
     // Connections: Control & SPI Path
     line("phone", "esp", mark: (start: ">", end: ">"), name: "l_wifi")
-    content("l_wifi.mid", text(6pt)[HTTP / WiFi], anchor: "south", padding: 2pt)
+    content("l_wifi.mid", text(6pt)[HTTP/WiFi], anchor: "south", padding: 2pt)
     line("esp", "spi", mark: (end: ">"))
     line("spi", "cmd", mark: (end: ">"))
 
@@ -98,19 +104,19 @@ On the other side the ESP32 serves as the brain of the user interface. It hosts 
     line("dec", "rec", mark: (end: ">"))
 
     // Connections: Command Dispatcher -> Recorder / Replay
-    line("cmd.north", (10.5, 1.5), "rec", mark: (end: ">"))
-    line("cmd.south", (10.5, -2), "rep", mark: (end: ">"))
+    line("cmd.north", (7.2, 1.5), "rec", mark: (end: ">"))
+    line("cmd.south", (7.2, -2), "rep", mark: (end: ">"))
 
     // Connections: Recorder / Replay to BRAM
-    line("rec.south", (14.0, 0), "bram", mark: (end: ">"))
-    line("rep.north", (14.0, 0), "bram", mark: (start: ">", end: ">"))
+    line("rec.south", (9.6, 0), "bram", mark: (end: ">"))
+    line("rep.north", (9.6, 0), "bram", mark: (start: ">", end: ">"))
 
     // Connections: Replay to Encoder & TX
     line("rep", "enc", mark: (end: ">"))
     line("enc", "tx", mark: (end: ">"), name: "l_irtx")
     content("l_irtx.mid", text(6pt)[`ir_tx`], anchor: "south", padding: 2pt)
   }),
-  caption: [System architecture diagram explicitly mapping all hardware components without overlap],
+  caption: [System architecture diagram explicitly mapping all hardware components],
 ) <fig-system-arch>
 
 == EdgeDetector (Lukas Mittermeier)
@@ -647,7 +653,7 @@ $
 The first approach considered for signalling commands from the ESP32-C3 to the FPGA
 was to dedicate one output GPIO per slot asserting the corresponding pin high would
 trigger a replay (short high pulse) or record (3 second high pulse) operation. While simple to implement in firmware, this
-approach has a scalability problem: At first we only wanted to support 4 remotes with 2 slots each. This was doable, but we wanted to support more remotes and more buttons (now 4 remotes × 10 buttons)
+approach has a scalability problem. At first we only wanted to support 4 remotes with 2 slots each. This was doable, but we wanted to support more remotes and more buttons (now 4 remotes × 10 buttons)
 plus a record/replay command input, at least 41 GPIOs would now be required.
 The ESP32-C3 has only 22 usable GPIOs in total @esp32c3_devkitc02, making this approach impossible.
 
