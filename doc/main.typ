@@ -456,14 +456,14 @@ circuit design is detailed in @sec-irtx-hardware).
 ) <fig-irtx-modulation>
 
 
-= Bringing up the physical hardware (Sauerwein Alexander)
+= Bringing up the physical hardware
 
 Bringing up the
 physical hardware prototype on the Arty A7-35T FPGA board, designing the IR receiver
 and transmitter circuits with component selection, implementing the ESP32–FPGA serial
 protocol and building the WiFi web interface.
 
-== FPGA Hardware Bring Up (Arty A7-35T)
+== FPGA Hardware Bring Up (Arty A7-35T) (Alexander Sauerwein)
 
 The implementation was verified on a Digilent Arty A7-35T board carrying a Xilinx
 Artix-7 XC7A35T FPGA. The board provides a 100 MHz system oscillator.
@@ -497,7 +497,7 @@ verify the behavior:
   caption: [Debug LED assignments on the Arty A7-35T],
 )
 
-== IR Receiver Circuit
+== IR Receiver Circuit (Alexander Sauerwein)
 
 The IR receiver requires a supply voltage of *5 V*
 to operate correctly. The Arty A7-35T board, however, only provides a *3.3 V* rail,
@@ -534,7 +534,7 @@ $
   approx 3.33 "V" < 3.4 "V" space checkmark
 $
 
-== IR Transmitter Circuit <sec-irtx-hardware>
+== IR Transmitter Circuit (Alexander Sauerwein) <sec-irtx-hardware>
 
 The Arty A7-35T only provides a *3.3 V* supply rail and the FPGA control pin
 `ir_tx_PAD` drives at 3.3 V logic levels. Because the IR LED requires
@@ -588,7 +588,7 @@ $
   I_"GPIO" = frac(3.3 V - 0.6 V, 2.7 "k"Omega) =1 "mA" < 12 "mA" space checkmark
 $
 
-== ESP32–FPGA Serial Protocol Design
+== ESP32–FPGA Serial Protocol Design (Alexander Sauerwein)
 
 === Design Evolution: from Parallel GPIO to Serial Protocol
 
@@ -837,6 +837,8 @@ safely bridges the gap between the two hardware domains:
   }),
   caption: [Block diagram illustrating the four pipeline stages of the SPI receiver.],
 ) <fig-spi-receiver>
+
+Thanks to good communication with Alex, the integration between the ESP32 and the FPGA went smoothly, resulting in almost no problems and only minor issues.
 
 == WiFi Web Interface (Alexander Sauerwein)
 
