@@ -1,20 +1,31 @@
-WORK_DIR=$(shell pwd)
-PDK_ROOT ?= $(WORK_DIR)/../pdk
-PDK = ihp-sg13g2
+IMAGE_PATH=DYC-logo/DYC.png
+export CELLNAME=DYC-logo
+export GDS_PATH=gds/DYC-logo.gds
 
-.PHONY: librelane-fast
-librelane-fast:
-	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --run-tag fast --overwrite config_fast.yaml
+export PDK_ROOT=../pdk
+export PDK=ihp-sg13g2
 
-.PHONY: librelane-signoff
-librelane-signoff:
-	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --run-tag signoff --overwrite config_signoff.yaml
+export CHIP_GDS=../examples/librelane-chip/runs/top-run/final/gds/top.gds
+export CHIP_GDS_WITH_LOGO=gds/final-logo.gds
+export LOGO_X=505
+export LOGO_Y=450
 
-.PHONY: view-results-fast
-view-results-fast:
-	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --last-run --flow OpenInOpenROAD config_fast.yaml
+.PHONY: img2gds
+img2gds:
+	python scripts/img2gds.py --cellname $(CELLNAME) --invert --layer 134 --scale 0.35 --pixel-size 2 --threshold 210 $(IMAGE_PATH) $(GDS_PATH)
 
+.PHONY: drc
+drc:
+	python $(PDK_ROOT)/$(PDK)/libs.tech/klayout/tech/drc/run_drc.py --run_dir drc/ --no_density --path $(GDS_PATH)
 
-PHONY: view-results-signoff
-view-results-signoff:
-	PDK_ROOT=$(PDK_ROOT) PDK=$(PDK) librelane --manual-pdk --last-run --flow OpenInOpenROAD config_signoff.yaml
+.PHONY: klayout
+klayout:
+	KLAYOUT_HOME=$(PDK_ROOT)/$(PDK)/libs.tech/klayout/ klayout -e $(GDS_PATH)
+
+.PHONY: insert_img
+insert_img:
+	python scripts/insert_img.py $(CHIP_GDS) $(GDS_PATH) $(CHIP_GDS_WITH_LOGO) $(LOGO_X) $(LOGO_Y) $(CELLNAME)
+
+.PHONY: klayout-final
+klayout-final:
+	KLAYOUT_HOME=$(PDK_ROOT)/$(PDK)/libs.tech/klayout/ klayout -e $(CHIP_GDS_WITH_LOGO)
