@@ -56,33 +56,23 @@ The two subsystems communicate over a custom 2-pin serial interface (DATA + CLK)
 
 = FPGA Design
 
-== EdgeDetector
+== EdgeDetector (Lukas Mittermeier)
 
-Monitors the demodulated IR receiver output and produces single-cycle strobe pulses
-on rising and falling edges, providing the timing reference for `PulseTimer`.
+The EdgeDetector is the first timing-critical stage in the receive path: it converts the asynchronous demodulator output into clock-domain-safe edge strobes and therefore defines the timing reference for `PulseTimer`. In implementation, the main challenge was not edge detection itself but making sure that asynchronous input behavior does not create unstable or ambiguous events in downstream logic. A 2-stage synchronizer was introduced as the baseline mechanism to reduce metastability risk and to provide a clean sampled signal (`ir_in_sync`) before any edge decision is made.
 
-=== Challenge: Glitches from the IR demodulator
+During integration, we observed that many apparent "edge detector bugs" were in fact caused by expectation mismatches between asynchronous signal behavior and synchronous sampling. Inputs that toggle close to a clock edge can be observed one or more cycles later, depending on the synchronizer pipeline state. This is correct hardware behavior, but it can look non-deterministic in early tests if latency assumptions are implicit. We therefore aligned module and test expectations around one explicit rule: edge pulses are generated from the synchronized signal only, and each detected transition is represented by a single-cycle `edge_rise` or `edge_fall` strobe. This eliminated interpretation conflicts between simulation traces and decoder timing assumptions and directly clarified how short disturbances should be treated.
 
-The TSOP-series demodulator occasionally produces sub-microsecond glitches that
-triggered false edge detections.
+Based on this rule set, noise and very short glitches were evaluated as an integration risk. A dedicated multi-sample glitch filter was discussed early, but for the current revision it was intentionally deferred to avoid distorting narrow timing boundaries and to keep the stage minimal. Instead, robustness was achieved through strict synchronizer-based edge generation plus verification scenarios that inject mid-cycle toggles and short disturbances. This approach kept edge strobes deterministic in the clock domain and provided a stable interface contract for subsequent decoder stages, while leaving room for a future optional debounce/filter block if field measurements justify it.
 
-*Solution:* A 2-stage synchronizer followed by a simple debounce counter (3 clock
-cycles) was added before the edge detection logic, eliminating spurious pulses without
-affecting timing accuracy.
+On the verification side, cocotb scheduling details were a relevant lesson learned. Driving DUT inputs in the wrong simulator phase can produce failures that resemble RTL defects although the root cause is testbench timing. We therefore separated sampling and driving phases (`ReadOnly` vs. `ReadWrite`) and added explicit mid-cycle stimulus to emulate asynchronous input transitions realistically. With this setup, edge pulse width, polarity, and mutual exclusivity (`edge_rise` and `edge_fall` never high simultaneously) could be validated reliably across normal transitions and glitch-like stimuli.
 
-== PulseTimer
+== PulseTimer (Lukas Mittermeier)
 
-Measures the duration of each IR pulse in clock cycles and outputs the width together
-with a polarity flag to the `NECDecoder`.
+The PulseTimer measures each high and low phase of the demodulated IR signal in clock cycles and forwards `pulse_width`, `pulse_level`, and `pulse_done` to the decoder stage. During early implementation, the counter size was intentionally tailored to the initial NEC-focused scope and set to 16 bits, because this matched the expected first integration targets and kept the module compact. During system integration, however, the main issue was not a broken counter but an inconsistent pulse-width definition between RTL and testbench, which caused off-by-one behavior at timing thresholds. The implementation was aligned to one shared rule (count full clock cycles between two edges), and decoder limits were adjusted to the same convention so borderline NEC pulses were classified consistently.
 
-=== Challenge: Counter overflow on missing stop bit
+As the architecture moved beyond a strict NEC-only path toward multi-protocol support, the timing envelope widened and the original 16-bit assumption became too tight for robust operation under all scenarios. Longer protocol phases, larger tolerance windows, and recovery/timeout paths increased the practical maximum pulse length that had to be represented without ambiguity. To avoid overflow risk and preserve a single timing infrastructure across protocols, the PulseTimer counter was expanded to 18 bits. This change removed corner-case truncation effects, stabilized classification at long pulse boundaries, and reduced integration friction between protocol-specific decoder stages.
 
-If no falling edge arrives after the final NEC data bit (missing stop bit), the
-counter would overflow and corrupt the next frame's timing.
-
-*Solution:* A configurable timeout was added. If the counter exceeds the maximum
-expected NEC pulse width (~70 ms), it resets and signals a timeout to the decoder FSM,
-which returns to its idle state.
+Robustness was improved by adding a timeout path for missing trailing edges, preventing stale measurements from propagating into the next frame. If no valid edge arrives within the configured maximum pulse window, the module emits a timeout condition and returns cleanly to idle, allowing the decoder FSM to recover deterministically. On verification level, cocotb stimulus timing was also cleaned up to avoid simulation-phase artifacts, and long timeout checks were separated from fast regressions to keep daily test cycles practical while still covering the recovery path.
 
 == NECDecoder
 
@@ -110,8 +100,29 @@ and only forwards the initial frame to the slot controller.
 
 == OutputFormatter
 
-Serializes decoded NEC frames (address + command) into ASCII for UART transmission,
-enabling host-side logging and testbench verification.
+The OutputFormatter converts decoded frame data into a UART-friendly ASCII stream and acts as the main debugging bridge between RTL behavior and terminal output. Instead of exposing raw internal buses, the module emits compact human-readable lines such as protocol label, address, and command. This significantly reduced debugging time during integration, because protocol recognition errors and payload mismatches became visible immediately without waveform inspection.
+
+A central design challenge was that one fixed text format was not sufficient once multi-protocol support was added. NEC-style protocols fit into a short `A:xx C:yy` representation, while Samsung variants require extended fields and different frame lengths. The final implementation therefore uses protocol-dependent formatting with dynamic output length, including dedicated paths for SAM32 and SAM36. Table <tab-output-formatter-formats> summarizes the resulting UART line formats and their byte lengths. This avoided lossy presentation of decoded information and kept the UART output aligned with the semantic structure used in decoder and replay paths.
+
+#figure(
+  table(
+    columns: (auto, 1fr, auto),
+    table.header([*Protocol*], [*UART output pattern*], [*Length*]),
+    [`NEC / ONKYO / APPLE / N8X2`], [`P:XXXXXXXX A:aa C:cc\n`], [`21 bytes`],
+    [`SAM32`], [`P:SAM32   A:aaaa C:cccc\n`], [`25 bytes`],
+    [`SAM36`], [`P:SAM36    A:aaaa ID:x C:cc\n`], [`28 bytes`],
+  ),
+  caption: [OutputFormatter protocol-dependent UART formats],
+) <tab-output-formatter-formats>
+
+Handshake robustness with the UART transmitter was another important topic. The formatter cannot assume that the transmitter is always ready, so byte emission is controlled by an explicit FSM (`IDLE`, `SEND`, `WAIT_ACK`, `WAIT_UART`) and only advances when `uart_ready` is asserted. During development, this prevented dropped or duplicated characters when backpressure occurred, especially in scenarios where multiple frames arrived close together. Buffering decoded inputs at frame start further ensured that a running output line remains stable even if new decoder values appear in parallel. The corresponding state flow is shown in Fig. <fig-output-formatter-fsm>.
+
+#figure(
+  image("OutputFormatterFSM.png", width: 55%),
+  caption: [OutputFormatter UART handshake FSM],
+) <fig-output-formatter-fsm>
+
+Verification was intentionally broad: directed tests covered protocol labels, field extraction, and UART handshake behavior, while a full 256×256 address/command sweep was also evaluated. That exhaustive run was useful once as a confidence check, but in practice it turned out to be too slow for daily development iterations. The team therefore treated it as an occasional deep-regression test and relied on faster focused tests for normal workflow, which gave much quicker feedback while still preserving confidence in formatting correctness.
 
 == UART_TX (Katalin Szentmiklosy)
 
@@ -162,7 +173,24 @@ The storage module infers block RAM (`(* ram_style = "block" *)`) with separate 
 
 Initially, `rd_valid` remained asserted for multiple cycles when `rd_en` was held high, violating the single-cycle pulse contract defined in `ir_types_pkg`. The final implementation explicitly deasserts `rd_valid` at the start of each clock cycle and only reasserts it when `rd_en` is sampled, ensuring strict single-cycle pulse behavior regardless of input hold time. This matches the handshake protocol expected by downstream modules (e.g., IR player) and prevents spurious read acknowledgments.
 
-== IRReplayFSM
+== IRReplayFSM (Lukas Mittermeier)
+
+The IRReplayFSM coordinates the replay path from a user replay request to a valid encoder start pulse. Instead of trying to trigger the encoder immediately, the state machine was designed as a strict handshake pipeline: first latch the requested slot, then issue a one-cycle memory read request, wait for `mem_rd_valid`, decode and validate the stored word, wait until both encoder and transmitter are ready, and only then emit a single-cycle `enc_start`. This stepwise approach was chosen early to avoid race conditions between storage, protocol decoding, and transmitter availability.
+
+The implemented state sequence is shown in Fig. <fig-ir-replay-fsm> and reflects the exact handshake order used in RTL (`READ_REQ` -> `READ_WAIT` -> `DECODE_WORD` -> `WAIT_ENCODER` -> `START_ENCODE` -> `DONE/ERROR`).
+
+#figure(
+  image("IRReplayFSM.png", width: 65%),
+  caption: [IR Replay FSM state machine],
+) <fig-ir-replay-fsm>
+
+During development, one recurring problem was that apparently valid replay requests still produced incorrect output frames. The root cause was not in the state transitions themselves, but in protocol-specific payload interpretation. For Samsung36, the semantic storage layout and the encoder bit-consumption order were not identical, so replayed bits were sent in the wrong sequence even though the slot read and handshake path worked correctly. The solution was to insert a protocol-specific remapping step directly in the replay FSM after unpacking the stored word and before entering the encoder wait state. This kept protocol adaptation localized in one module and prevented protocol quirks from leaking into generic storage or encoder control logic.
+
+Another important design decision was explicit backpressure handling. In early integration attempts, replay control can look functionally correct as long as the encoder is always ready in simulation, but this assumption does not hold in full-system operation. The final FSM therefore remains in `ST_WAIT_ENCODER` until both `enc_ready` and `tx_ready` are asserted, guaranteeing that `enc_start` is never issued speculatively. This removed intermittent replay failures under load and made behavior deterministic when replay requests coincided with ongoing transmissions.
+
+Error handling was also made explicit instead of implicit. After reading and unpacking the stored slot word, the FSM checks the validity flag before starting transmission. Invalid or empty slots are routed to a dedicated error path that raises `error` and returns cleanly to idle. Valid words proceed to the normal replay path and generate `done` after a successful start handshake. Separating these outcomes simplified verification because both happy-path and failure-path behavior can be asserted directly at the FSM boundary.
+
+From a methodology perspective, the replay controller was developed as a sequence of increasingly realistic contracts: first read-handshake correctness, then payload integrity, then encoder/transmitter readiness gating, and finally protocol-specific replay correctness. This ordering helped isolate bugs early and reduced debug complexity when multiple modules interacted. In practice, the strongest lesson was that replay correctness depends less on the number of states and more on clear ownership boundaries: storage read timing, payload semantics, and start conditions must each be validated explicitly before moving to the next stage.
 
 == NECEncoder
 
