@@ -20,46 +20,67 @@
   listing-index: (enabled: true),
 )
 
-= Introduction
+= Introduction 
 
-Infrared remote control systems are ubiquitous in consumer
-electronics. The NEC protocol encodes 32-bit frames — an 8-bit address, its logical
-inverse, an 8-bit command, and its inverse — using pulse-distance modulation at a
-38 kHz carrier frequency.
+Infrared remote control systems are everywhere in consumer electronics and usually rely on simple pulse distance modulation. The original goal of this project was to build a simple hardware decoder for the standard NEC protocol that runs directly on an FPGA. We wanted to be able to decode the signals in real time and also record and replay them.
 
-The goal of this project was to build a complete, self-contained system that can:
+Because the baseline implementation was finished much faster than expected we decided to significantly expand the scope of the project. We added support for multiple different remotes and entirely different pulse distance protocols out of the box.
 
-+ *Decode* arbitrary NEC IR signals in real-time hardware,
-+ *Store* up to 40 captured commands in named slots,
-+ *Replay* any stored command wirelessly via a web browser.
+To make the whole system actually usable as a real consumer product we integrated an ESP32 microcontroller into the design. The FPGA handles all the strict timing requirements for receiving and transmitting the high speed infrared signals while the ESP32 provides a convenient wireless web interface. This allows us to store up to forty captured commands in named slots and replay any of them directly from a smartphone browser connecting any old infrared controlled device to a modern smart home setup.
 
-It is worth noting that the project was originally intended to strictly decode and
-encode only the standard NEC protocol (which is why the core modules are named
-`NECDecoder` and `NECEncode`). However, getting the baseline NEC implementation
-running went much faster than anticipated. This freed up time to expand the scope
-significantly, adding support for multiple different remotes, entirely different
-pulse-distance protocols, and the web-based storage system. And the ESP32-C3 Wifi steering so we have a whole Produvt which allows you to connect any Ir controlled device which supports our Protocll to your smart home
-
-The system consists of two main components: an FPGA running a pipelined VHDL decoder,
-and an ESP32-C3 microcontroller exposing a Wi-Fi web interface.
+#figure(
+  image("../docs/images/supported_remotes.jpeg", width: 80%),
+  caption: [A selection of the different remote controls supported by the decoder],
+) <fig-supported-remotes>
 
 = System Architecture
 
-== Overview
+== Overview (Maik Unglert)
 
-The two subsystems communicate over a custom 2-pin serial interface (DATA + CLK).
+The architecture is split into two main hardware subsystems that work closely together to provide the full feature set. The FPGA acts as the raw hardware engine taking care of all the high speed signal processing. It decodes the incoming 38 kHz infrared bursts stores the captured commands in internal block RAM and accurately reconstructs the waveforms for playback.
+
+On the other side the ESP32 serves as the brain of the user interface. It hosts a local Wi-Fi access point and a lightweight web server. When a user interacts with the web interface the ESP32 serializes the request into a custom two wire serial protocol and sends it over to the FPGA. This clear separation of concerns keeps the hardware logic simple and focused on strict timing while the microcontroller handles the complex network stack.
 
 #figure(
-  table(
-    columns: (1fr, 1fr),
-    table.header([*FPGA Subsystem*], [*ESP32-C3 Subsystem*]),
-    [NEC IR signal decoding], [Wi-Fi SoftAP (SSID: _IR-Remote_)],
-    [BRAM slot storage], [HTTP server at `192.168.4.1`],
-    [UART debug output], [Slot record / replay / rename UI],
-    [Serial frame receiver], [Serial frame transmitter],
-  ),
-  caption: [Subsystem responsibilities],
-)
+  canvas({
+    import draw: *
+    set-style(line: (stroke: 1pt), content: (padding: .1))
+
+    content((0, 2), box(stroke: 1pt, inset: 8pt, align(center)[*Original Remote*]), name: "remote")
+    content((4, 2), box(stroke: 1pt, inset: 8pt, align(center)[*IR Receiver*]), name: "rx")
+
+    content((0, -2), box(stroke: 1pt, inset: 8pt, align(center)[*Smartphone* \ Web UI]), name: "phone")
+    content((4, -2), box(stroke: 1pt, inset: 8pt, align(center)[*ESP32* \ WiFi Server]), name: "esp")
+
+    content(
+      (8, 0),
+      box(stroke: 1pt, inset: 8pt, align(center)[*FPGA Core* \ Decoder, Storage, \ Replay Encoder]),
+      name: "fpga",
+    )
+
+    content((12, 0), box(stroke: 1pt, inset: 8pt, align(center)[*IR Transmitter* \ LED Circuit]), name: "tx")
+    content((16, 0), box(stroke: 1pt, inset: 8pt, align(center)[*Target Device* \ TV, LED Strip]), name: "device")
+
+    line("remote", "rx", mark: (end: ">"), name: "l1")
+    content("l1.mid", text(7pt)[Infrared Space], anchor: "south", padding: 4pt)
+
+    line("rx", "fpga", mark: (end: ">"), name: "l2")
+    content("l2.mid", text(7pt)[Raw Pulses], anchor: "south-east", padding: 4pt)
+
+    line("phone", "esp", mark: (start: ">", end: ">"), name: "l3")
+    content("l3.mid", text(7pt)[HTTP / WiFi], anchor: "south", padding: 4pt)
+
+    line("esp", "fpga", mark: (end: ">"), name: "l4")
+    content("l4.mid", text(7pt)[SPI Commands], anchor: "north-east", padding: 4pt)
+
+    line("fpga", "tx", mark: (end: ">"), name: "l5")
+    content("l5.mid", text(7pt)[38 kHz Signal], anchor: "south", padding: 4pt)
+
+    line("tx", "device", mark: (end: ">"), name: "l6")
+    content("l6.mid", text(7pt)[Infrared Space], anchor: "south", padding: 4pt)
+  }),
+  caption: [System architecture overview showing the real world interaction flow],
+) <fig-system-arch>
 
 == EdgeDetector (Lukas Mittermeier)
 
@@ -347,7 +368,7 @@ Initially, `rd_valid` remained asserted for multiple cycles when `rd_en` was hel
 
 == IRReplayFSM (Lukas Mittermeier)
 
-== NECEncoder (Maik Unglert)
+== NEC Encoder (Maik Unglert)
 
 To support the replay functionality, a complete transmit path was needed. The encoder
 module sits in the middle of this path, taking a stored frame payload from the
