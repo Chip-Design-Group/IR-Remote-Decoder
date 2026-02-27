@@ -200,14 +200,15 @@ need careful handling. @fig-nec-fsm shows the full state machine; the following
 sections describe the practical problems that came up during testing.
 
 #figure(
-  canvas(length: 1.0cm, {
+  placement: none,
+  canvas(length: 0.86cm, {
     import draw: *
 
-    let box(pos, lbl, id) = {
+    let box(pos, lbl, id, halfw: 1.15) = {
       let (x, y) = pos
       rect(
-        (x - 1.15, y - 0.32),
-        (x + 1.15, y + 0.32),
+        (x - halfw, y - 0.32),
+        (x + halfw, y + 0.32),
         radius: 0.18,
         name: id,
         fill: rgb("#e3f2fd"),
@@ -229,7 +230,7 @@ sections describe the practical problems that came up during testing.
     box((0, -6), "SPACE", "space")
     box((0, -9), "DATA", "data")
     box((0, -12), "VALIDATE", "validate")
-    box((5, -6), "REPEAT\_WAIT\_STOP", "rwait")
+    box((5, -6), "REPEAT\_WAIT\_STOP", "rwait", halfw: 1.7)
     box((5, -9), "REPEAT\_EMIT", "remit")
 
     // protocol hints right of their states
@@ -415,6 +416,23 @@ The storage module infers block RAM (`(* ram_style = "block" *)`) with separate 
 Initially, `rd_valid` remained asserted for multiple cycles when `rd_en` was held high, violating the single-cycle pulse contract defined in `ir_types_pkg`. The final implementation explicitly deasserts `rd_valid` at the start of each clock cycle and only reasserts it when `rd_en` is sampled, ensuring strict single-cycle pulse behavior regardless of input hold time. This matches the handshake protocol expected by downstream modules (e.g., IR player) and prevents spurious read acknowledgments.
 
 == IRReplayFSM (Lukas Mittermeier)
+
+The IRReplayFSM coordinates the replay path from a user replay request to a valid encoder start pulse. Instead of trying to trigger the encoder immediately, the state machine was designed as a strict handshake pipeline: first latch the requested slot, then issue a one-cycle memory read request, wait for `mem_rd_valid`, decode and validate the stored word, wait until both encoder and transmitter are ready, and only then emit a single-cycle `enc_start`. This stepwise approach was chosen early to avoid race conditions between storage, protocol decoding, and transmitter availability.
+
+The implemented state sequence is shown in Fig. <fig-ir-replay-fsm> and reflects the exact handshake order used in RTL (`READ_REQ` -> `READ_WAIT` -> `DECODE_WORD` -> `WAIT_ENCODER` -> `START_ENCODE` -> `DONE/ERROR`).
+
+#figure(
+  image("IRReplayFSM.png", width: 65%),
+  caption: [IR Replay FSM state machine],
+) <fig-ir-replay-fsm>
+
+During development, one recurring problem was that apparently valid replay requests still produced incorrect output frames. The root cause was not in the state transitions themselves, but in protocol-specific payload interpretation. For Samsung36, the semantic storage layout and the encoder bit-consumption order were not identical, so replayed bits were sent in the wrong sequence even though the slot read and handshake path worked correctly. The solution was to insert a protocol-specific remapping step directly in the replay FSM after unpacking the stored word and before entering the encoder wait state. This kept protocol adaptation localized in one module and prevented protocol quirks from leaking into generic storage or encoder control logic.
+
+Another important design decision was explicit backpressure handling. In early integration attempts, replay control can look functionally correct as long as the encoder is always ready in simulation, but this assumption does not hold in full-system operation. The final FSM therefore remains in `ST_WAIT_ENCODER` until both `enc_ready` and `tx_ready` are asserted, guaranteeing that `enc_start` is never issued speculatively. This removed intermittent replay failures under load and made behavior deterministic when replay requests coincided with ongoing transmissions.
+
+Error handling was also made explicit instead of implicit. After reading and unpacking the stored slot word, the FSM checks the validity flag before starting transmission. Invalid or empty slots are routed to a dedicated error path that raises `error` and returns cleanly to idle. Valid words proceed to the normal replay path and generate `done` after a successful start handshake. Separating these outcomes simplified verification because both happy-path and failure-path behavior can be asserted directly at the FSM boundary.
+
+From a methodology perspective, the replay controller was developed as a sequence of increasingly realistic contracts: first read-handshake correctness, then payload integrity, then encoder/transmitter readiness gating, and finally protocol-specific replay correctness. This ordering helped isolate bugs early and reduced debug complexity when multiple modules interacted. In practice, the strongest lesson was that replay correctness depends less on the number of states and more on clear ownership boundaries: storage read timing, payload semantics, and start conditions must each be validated explicitly before moving to the next stage.
 
 == NEC Encoder (Maik Unglert)
 
