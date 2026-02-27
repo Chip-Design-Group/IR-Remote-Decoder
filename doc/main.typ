@@ -20,7 +20,7 @@
   listing-index: (enabled: true),
 )
 
-= Introduction 
+= Introduction
 
 Infrared remote control systems are everywhere in consumer electronics and usually rely on simple pulse distance modulation. The original goal of this project was to build a simple hardware decoder for the standard NEC protocol that runs directly on an FPGA. We wanted to be able to decode the signals in real time and also record and replay them.
 
@@ -35,7 +35,7 @@ To make the whole system actually usable as a real consumer product we integrate
 
 = System Architecture
 
-== Overview (Maik Unglert)
+== Overview
 
 The architecture is split into two main hardware subsystems that work closely together to provide the full feature set. The FPGA acts as the raw hardware engine taking care of all the high speed signal processing. It decodes the incoming 38 kHz infrared bursts stores the captured commands in internal block RAM and accurately reconstructs the waveforms for playback.
 
@@ -46,40 +46,94 @@ On the other side the ESP32 serves as the brain of the user interface. It hosts 
     import draw: *
     set-style(line: (stroke: 1pt), content: (padding: .1))
 
-    content((0, 2), box(stroke: 1pt, inset: 8pt, align(center)[*Original Remote*]), name: "remote")
-    content((4, 2), box(stroke: 1pt, inset: 8pt, align(center)[*IR Receiver*]), name: "rx")
+    // External components (Left and Right)
+    content((-2, 3), box(stroke: 1pt, inset: 6pt, align(center)[*Infrared* \ *Receiver*]), name: "rx")
+    content((16, 2), box(stroke: 1pt, inset: 6pt, align(center)[*Infrared* \ *Transmitter*]), name: "tx")
+    content((16, -1), box(stroke: 1pt, inset: 6pt, align(center)[*PC Terminal* \ UART Display]), name: "pc")
+    content((-2, -2.5), box(stroke: 1pt, inset: 6pt, align(center)[*Smartphone* \ Web UI]), name: "phone")
+    content((3, -2.5), box(stroke: 1pt, inset: 6pt, align(center)[*ESP32-C3* \ WiFi Server]), name: "esp")
 
-    content((0, -2), box(stroke: 1pt, inset: 8pt, align(center)[*Smartphone* \ Web UI]), name: "phone")
-    content((4, -2), box(stroke: 1pt, inset: 8pt, align(center)[*ESP32* \ WiFi Server]), name: "esp")
+    // FPGA Wrapper box boundaries
+    let fpga_left = 1
+    let fpga_right = 13.5
+    let fpga_top = 4.5
+    let fpga_bottom = -1
 
-    content(
-      (8, 0),
-      box(stroke: 1pt, inset: 8pt, align(center)[*FPGA Core* \ Decoder, Storage, \ Replay Encoder]),
-      name: "fpga",
-    )
+    // FPGA Core
+    content((7, 4), [*FPGA Core System*], anchor: "south")
+    rect((fpga_left, fpga_bottom), (fpga_right, fpga_top), stroke: (dash: "dashed", paint: gray, thickness: 1pt))
 
-    content((12, 0), box(stroke: 1pt, inset: 8pt, align(center)[*IR Transmitter* \ LED Circuit]), name: "tx")
-    content((16, 0), box(stroke: 1pt, inset: 8pt, align(center)[*Target Device* \ TV, LED Strip]), name: "device")
+    // Receiver Path (Top row)
+    content((3, 3), box(stroke: 1pt, inset: 6pt, align(center)[Edge \ Detector]), name: "edge")
+    content((6, 3), box(stroke: 1pt, inset: 6pt, align(center)[Pulse \ Timer]), name: "timer")
+    content((9, 3), box(stroke: 1pt, inset: 6pt, align(center)[Decoder \ (NEC, etc.)]), name: "dec")
 
-    line("remote", "rx", mark: (end: ">"), name: "l1")
-    content("l1.mid", text(7pt)[Infrared Space], anchor: "south", padding: 4pt)
+    // Storage and formatter (Middle row)
+    content((12, 3), box(stroke: 1pt, inset: 6pt, align(center)[Output \ Formatter]), name: "fmt")
+    content((12, 1), box(stroke: 1pt, inset: 6pt, align(center)[UART \ TX]), name: "uart")
+    content((9, 1), box(stroke: 1pt, inset: 6pt, align(center)[Storage \ BRAM]), name: "bram")
+    content((6, 1), box(stroke: 1pt, inset: 6pt, align(center)[Recorder \ FSM]), name: "rec")
 
-    line("rx", "fpga", mark: (end: ">"), name: "l2")
-    content("l2.mid", text(7pt)[Raw Pulses], anchor: "south-east", padding: 4pt)
+    // Replay Path and ESP32 interface
+    content((9, -0.5), box(stroke: 1pt, inset: 6pt, align(center)[Replay \ FSM]), name: "rep")
+    content((12, -0.5), box(stroke: 1pt, inset: 6pt, align(center)[IR \ Encoder]), name: "enc")
+    content((3, -0.5), box(stroke: 1pt, inset: 6pt, align(center)[SPI \ Receiver]), name: "spi")
+    content((6, -0.5), box(stroke: 1pt, inset: 6pt, align(center)[Command \ Dispatcher]), name: "cmd")
 
-    line("phone", "esp", mark: (start: ">", end: ">"), name: "l3")
-    content("l3.mid", text(7pt)[HTTP / WiFi], anchor: "south", padding: 4pt)
+    // External Connections
+    line("rx", "edge", mark: (end: ">"), name: "l_rx")
+    content("l_rx.mid", text(7pt)[`ir_in`], anchor: "south", padding: 2pt)
 
-    line("esp", "fpga", mark: (end: ">"), name: "l4")
-    content("l4.mid", text(7pt)[SPI Commands], anchor: "north-east", padding: 4pt)
+    line("phone", "esp", mark: (start: ">", end: ">"), name: "l_wifi")
+    content("l_wifi.mid", text(7pt)[HTTP / WiFi], anchor: "south", padding: 2pt)
 
-    line("fpga", "tx", mark: (end: ">"), name: "l5")
-    content("l5.mid", text(7pt)[38 kHz Signal], anchor: "south", padding: 4pt)
+    line("esp", "spi", mark: (end: ">"), name: "l_spi")
+    content("l_spi.mid", text(7pt)[SPI Command], anchor: "west", padding: 2pt)
 
-    line("tx", "device", mark: (end: ">"), name: "l6")
-    content("l6.mid", text(7pt)[Infrared Space], anchor: "south", padding: 4pt)
+    line((fpga_right, 2), "tx", mark: (end: ">"), name: "l_tx")
+    content("l_tx.mid", text(7pt)[`ir_tx`], anchor: "south", padding: 2pt)
+
+    line("uart", "pc", mark: (end: ">"), name: "l_pc")
+    content("l_pc.mid", text(7pt)[`tx_out`], anchor: "south", padding: 2pt)
+
+    // Internal Connections - Receiver Path
+    line("edge", "timer", mark: (end: ">"), name: "l_ed")
+    content("l_ed.mid", text(7pt)[Edges], anchor: "south", padding: 2pt)
+
+    line("timer", "dec", mark: (end: ">"), name: "l_td")
+    content("l_td.mid", text(7pt)[Timing], anchor: "south", padding: 2pt)
+
+    line("dec", "fmt", mark: (end: ">"), name: "l_df")
+    content("l_df.mid", text(7pt)[Frame], anchor: "south", padding: 2pt)
+
+    line("fmt", "uart", mark: (end: ">"), name: "l_fu")
+    content("l_fu.mid", text(7pt)[String], anchor: "east", padding: 2pt)
+
+    // Internal Connections - Recording Path
+    line("dec", "rec", mark: (end: ">"), name: "l_dr")
+    line("rec", "bram", mark: (end: ">"), name: "l_rb")
+    content("l_rb.mid", text(7pt)[Write Data], anchor: "south", padding: 2pt)
+
+    // Internal Connections - Replay Path
+    line("spi", "cmd", mark: (end: ">"), name: "l_sc")
+    content("l_sc.mid", text(7pt)[Req(Slot)], anchor: "south", padding: 2pt)
+
+    line("cmd", "rec", mark: (end: ">"), name: "l_cr")
+    content("l_cr.mid", text(7pt)[Record Req], anchor: "west", padding: 2pt)
+
+    line("cmd", "rep", mark: (end: ">"), name: "l_cp")
+    content("l_cp.mid", text(7pt)[Play Req], anchor: "south", padding: 2pt)
+
+    line("rep", "bram", mark: (start: ">", end: ">"), name: "l_pb")
+    content("l_pb.mid", text(7pt)[Read Data], anchor: "west", padding: 2pt)
+
+    line("rep", "enc", mark: (end: ">"), name: "l_pe")
+    content("l_pe.mid", text(7pt)[Frame], anchor: "south", padding: 2pt)
+
+    // Transmitter
+    line("enc", (fpga_right, 2), name: "l_et")
   }),
-  caption: [System architecture overview showing the real world interaction flow],
+  caption: [System architecture overview showing all internal block connections],
 ) <fig-system-arch>
 
 == EdgeDetector (Lukas Mittermeier)
