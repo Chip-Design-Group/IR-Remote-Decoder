@@ -23,5 +23,6 @@ vivado.jou
 *.jou
 /TopLevel/vivado*
 /TopLevel/src/runs/
+/TopLevel/runs/*
 wifi_button/build
 
